@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"net/http"

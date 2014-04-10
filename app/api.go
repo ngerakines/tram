@@ -1,7 +1,6 @@
 package app
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"net/http"
 )
