@@ -88,7 +88,7 @@ func fileCache() {
 				switch event.Name {
 				case "init":
 					{
-						fmt.Println("Running init")
+						initCachedFiles()
 					}
 				case "download":
 					{
@@ -108,6 +108,42 @@ func fileCache() {
 				search.Response <- findCachedFile(search.Query)
 			}
 		}
+	}
+}
+
+func initCachedFiles() {
+	Recurse := false
+	walkFn := func(path string, info os.FileInfo, err error) error {
+		stat, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
+		if stat.IsDir() && path != cacheDirectory && !Recurse {
+			return filepath.SkipDir
+		}
+
+		if err != nil {
+			return err
+		}
+		if strings.HasSuffix(path, ".metadata") {
+			content, err := ioutil.ReadFile(path)
+			if err == nil {
+				dir, fileName := filepath.Split(path)
+				fileNameParts := strings.Split(fileName, ".")
+				contentHash := fileNameParts[0]
+				fileAliases := strings.Split(string(content), "\n")
+				cachedFiles[contentHash] = &CachedFile{fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
+				for _, alias := range fileAliases {
+					aliases[alias] = contentHash
+				}
+			}
+		}
+		return nil
+	}
+	err := filepath.Walk(cacheDirectory, walkFn)
+	if err != nil {
+		fmt.Println(err.Error())
 	}
 }
 
@@ -139,8 +175,6 @@ func download(url string, urlAliases []string) {
 	contentHash := hash(body)
 	path := filepath.Join(cacheDirectory, contentHash)
 
-	fmt.Println("Storing url", url, "as id", urlHash, "with content addressed as", contentHash)
-
 	ioutil.WriteFile(path, body, 00777)
 	cachedFiles[contentHash] = &CachedFile{url, urlAliases, path}
 
@@ -152,12 +186,12 @@ func download(url string, urlAliases []string) {
 
 	var buffer bytes.Buffer
 	buffer.WriteString(url)
-	buffer.WriteString("\n" + contentHash)
+	buffer.WriteString("\n" + urlHash)
 	if len(urlAliases) > 0 {
 		buffer.WriteString("\n")
 		buffer.WriteString(strings.Join(urlAliases, "\n"))
 	}
-	ioutil.WriteFile(filepath.Join(cacheDirectory, contentHash+".aliases"), buffer.Bytes(), 00777)
+	ioutil.WriteFile(filepath.Join(cacheDirectory, contentHash+".metadata"), buffer.Bytes(), 00777)
 }
 
 func hash(bytes []byte) string {
