@@ -158,3 +158,9 @@ func download(url string, urlAliases []string) {
 	}
 	ioutil.WriteFile(filepath.Join(cacheDirectory, contentHash+".aliases"), buffer.Bytes(), 00777)
 }
+
+func hash(bytes []byte) string {
+	hasher := sha1.New()
+	hasher.Write(bytes)
+	return fmt.Sprintf("%x", hasher.Sum(nil))
+}

@@ -32,14 +32,6 @@ func HandleIndex(res http.ResponseWriter, req *http.Request) (int, string) {
 	return 200, "OK"
 }
 
-func hashForAlias(alias string) string {
-	hash, ok := aliases[alias]
-	if ok {
-		return hash
-	}
-	return ""
-}
-
 func getValues(req *http.Request, keys []string) map[string]string {
 	values := make(map[string]string)
 	fmt.Println(req.Method)
@@ -57,10 +49,4 @@ func getValues(req *http.Request, keys []string) map[string]string {
 		}
 	}
 	return values
-}
-
-func hash(bytes []byte) string {
-	hasher := sha1.New()
-	hasher.Write(bytes)
-	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
