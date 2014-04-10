@@ -1,13 +1,14 @@
 package app
 
 import (
-	"os"
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
-	"bytes"
+	"time"
 )
 
 var (
@@ -24,14 +25,14 @@ type Event struct {
 }
 
 type QueryCachedFiles struct {
-	Query string
+	Query    string
 	Response chan *CachedFile
 }
 
 type CachedFile struct {
-	Url string
+	Url     string
 	Aliases []string
-	Path string
+	Path    string
 }
 
 func (event Event) String() string {
@@ -50,7 +51,19 @@ func Query(token string) *CachedFile {
 	search := QueryCachedFiles{token, make(chan *CachedFile)}
 	defer close(search.Response)
 	query <- search
-	return <-search.Response
+
+	timeout := make(chan bool, 1)
+	go func() {
+		time.Sleep(1 * time.Second)
+		timeout <- true
+	}()
+
+	select {
+	case result := <-search.Response:
+		return result
+	case <-timeout:
+		return nil
+	}
 }
 
 func init() {
@@ -58,7 +71,7 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	cacheDirectory = filepath.Join(pwd, "cache")
+	cacheDirectory = filepath.Join(pwd, ".cache")
 	os.MkdirAll(cacheDirectory, 00777)
 
 	go fileCache()

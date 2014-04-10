@@ -13,14 +13,14 @@ func HandleIndex(res http.ResponseWriter, req *http.Request) (int, string) {
 	if req.Method == "HEAD" {
 		fmt.Println("Checking to see if url", url, "was downloaded.")
 		cachedFile := Query(url)
-		if (cachedFile != nil) {
+		if cachedFile != nil {
 			return 200, cachedFile.Path
 		}
 		return 404, "not found"
 	} else if req.Method == "GET" {
 		fmt.Println("Attempting to return content of downloaded url", url, ".")
 		cachedFile := Query(url)
-		if (cachedFile != nil) {
+		if cachedFile != nil {
 			http.ServeFile(res, req, cachedFile.Path)
 			return 200, "OK"
 		}
