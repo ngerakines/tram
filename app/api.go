@@ -1,39 +1,43 @@
 package app
 
 import (
-	"fmt"
 	"net/http"
 )
 
-func HandleIndex(res http.ResponseWriter, req *http.Request) (int, string) {
-	fmt.Println("method", req.Method)
+func HandleIndex(res http.ResponseWriter, req *http.Request) {
 	values := getValues(req, []string{"url"})
 	url := values["url"]
 	if req.Method == "HEAD" {
-		fmt.Println("Checking to see if url", url, "was downloaded.")
 		cachedFile := Query(url)
 		if cachedFile != nil {
-			return 200, cachedFile.Path
+			res.Header().Set("Content-Length", "0")
+			res.WriteHeader(200)
+			return
 		}
-		return 404, "not found"
+		res.Header().Set("Content-Length", "0")
+		res.WriteHeader(404)
+		return
 	} else if req.Method == "GET" {
-		fmt.Println("Attempting to return content of downloaded url", url, ".")
 		cachedFile := Query(url)
 		if cachedFile != nil {
 			http.ServeFile(res, req, cachedFile.Path)
-			return 200, "OK"
+			return
 		}
-		return 404, "not found"
+		res.WriteHeader(404)
+		return
 	} else if req.Method == "POST" {
-		fmt.Println("Attempting have url", url, "fetched and cached.")
 		PublishEvent("download", map[string]string{"url": url, "aliases": ""})
+		res.Header().Set("Content-Length", "0")
+		res.WriteHeader(202)
+		return
 	}
-	return 200, "OK"
+	res.Header().Set("Content-Length", "0")
+	res.WriteHeader(404)
+	return
 }
 
 func getValues(req *http.Request, keys []string) map[string]string {
 	values := make(map[string]string)
-	fmt.Println(req.Method)
 	if req.Method == "GET" || req.Method == "HEAD" {
 		queryValues := req.URL.Query()
 		for _, key := range keys {
@@ -42,7 +46,6 @@ func getValues(req *http.Request, keys []string) map[string]string {
 	} else {
 		req.ParseForm()
 		formValues := req.Form
-		fmt.Println(formValues)
 		for _, key := range keys {
 			values[key] = formValues.Get(key)
 		}
