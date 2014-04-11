@@ -4,9 +4,9 @@ Tram is a small daemon that will download and cache HTTP GET requests for later 
 
 # Usage
 
-To populate content, make a POST request with a `url` field containing the url that the HTTP GET request should be made to.
+To populate content, make a POST request with a `url` field containing the url that the HTTP GET request should be made to and one or more alias fields.
 
-    $ curl --data "url=http://ngerakines.me/" http://localhost:3000/
+    $ curl --data "alias=&url=http://ngerakines.me/" http://localhost:3000/
 
 To fetch the content, make an HTTP GET request with the `url` query string parameter of the url that has been cached.
 
