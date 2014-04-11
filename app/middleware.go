@@ -19,11 +19,8 @@ type FileCache interface {
 }
 
 func NewFileCacheWithPath(basePath string) martini.Handler {
-	s := NewDiskFileCache(basePath)
-	return func(_ http.ResponseWriter, _ *http.Request, c martini.Context, _ *log.Logger) {
-		c.MapTo(s, (*FileCache)(nil))
-		c.Next()
-	}
+	fileCache := NewDiskFileCache(basePath)
+	return NewFileCacheMiddleware(fileCache)
 }
 
 func NewFileCacheMiddleware(fileCache FileCache) martini.Handler {
@@ -65,7 +62,6 @@ func (dfc *DiskFileCache) WarmAndQuery(url string, fileAliases []string) *Cached
 	case result := <-command.Response:
 		return result
 	case <- time.After(3 * 1e9):
-		fmt.Println("Timeout!")
 		return nil
 	}
 }
@@ -79,7 +75,6 @@ func (dfc *DiskFileCache) Query(tokens []string) *CachedFile {
 	case result := <-search.Response:
 		return result
 	case <- time.After(3 * 1e9):
-		fmt.Println("Timeout!")
 		return nil
 	}
 }
@@ -107,7 +102,6 @@ func fileCache(query chan QueryCachedFiles, warm chan WarmCachedFiles, warmAndQu
 			if !ok {
 				return
 			}
-			fmt.Println("got download command", command)
 			command.Response <- download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
 		}
 		case command, ok := <-query:
@@ -172,10 +166,8 @@ func findCachedFile(tokens []string, _ string, cachedFiles map[string]*CachedFil
 func download(url string, urlAliases []string, cacheDirectory string, cachedFiles map[string]*CachedFile, aliases map[string]string) *CachedFile {
 	existingCachedFile := findCachedFile(append(urlAliases, url), cacheDirectory, cachedFiles, aliases)
 	if existingCachedFile != nil {
-		fmt.Println("Found cached file", existingCachedFile.Path)
 		return existingCachedFile
 	}
-	fmt.Println("No existing stuff was found")
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -192,8 +184,6 @@ func download(url string, urlAliases []string, cacheDirectory string, cachedFile
 	urlHash := hash([]byte(url))
 	contentHash := hash(body)
 	path := filepath.Join(cacheDirectory, contentHash)
-
-	fmt.Println("Downloaded stuff.")
 
 	allAliases := make(map[string]bool)
 	allAliases[url] = true
@@ -212,6 +202,5 @@ func download(url string, urlAliases []string, cacheDirectory string, cachedFile
 		aliases[alias] = contentHash
 	}
 
-	fmt.Println("Returning cachedFile", cachedFile)
 	return cachedFile
 }

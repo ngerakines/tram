@@ -44,7 +44,6 @@ func (cf *CachedFile) StoreMetadata() {
 		buffer.WriteString("\n")
 		buffer.WriteString(strings.Join(cf.Aliases, "\n"))
 	}
-	fmt.Println("Writing metadata to", cf.Path+".metadata")
 	err := ioutil.WriteFile(cf.Path+".metadata", buffer.Bytes(), 00777)
 	if err != nil {
 		fmt.Println(err.Error())

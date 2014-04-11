@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"net/http"
 )
 
@@ -36,7 +35,6 @@ func handleHead(res http.ResponseWriter, req *http.Request, fileCache FileCache)
 func handleGet(res http.ResponseWriter, req *http.Request, fileCache FileCache) {
 	values := getValues(req, []string{"query", "url", "alias"})
 	query, hasQuery := values["query"]
-	fmt.Println("hasQuery", hasQuery)
 	if hasQuery && len(query) > 0 {
 		cachedFile := fileCache.Query(query)
 		if cachedFile != nil {
@@ -47,7 +45,6 @@ func handleGet(res http.ResponseWriter, req *http.Request, fileCache FileCache) 
 	url, hasUrl := values["url"]
 	alias, hasAlias := values["alias"]
 	if hasUrl && len(url) > 0 {
-		fmt.Println("Getting url", url)
 		cachedFile := fileCache.WarmAndQuery(url[0], aliasOrEmpty(hasAlias, alias))
 		if cachedFile != nil {
 			http.ServeFile(res, req, cachedFile.Path)
