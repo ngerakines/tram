@@ -3,13 +3,13 @@ package app
 import (
 	"fmt"
 	"github.com/codegangsta/martini"
+	"io/ioutil"
 	"log"
 	"net/http"
-	"time"
 	"os"
 	"path/filepath"
 	"strings"
-	"io/ioutil"
+	"time"
 )
 
 type FileCache interface {
@@ -31,9 +31,9 @@ func NewFileCacheMiddleware(fileCache FileCache) martini.Handler {
 }
 
 type DiskFileCache struct {
-	query             chan QueryCachedFiles
-	warm              chan WarmCachedFiles
-	warmAndQuery      chan WarmAndQueryCachedFiles
+	query        chan QueryCachedFiles
+	warm         chan WarmCachedFiles
+	warmAndQuery chan WarmAndQueryCachedFiles
 }
 
 func NewDiskFileCache(basePath string) *DiskFileCache {
@@ -61,7 +61,7 @@ func (dfc *DiskFileCache) WarmAndQuery(url string, fileAliases []string) *Cached
 	select {
 	case result := <-command.Response:
 		return result
-	case <- time.After(3 * 1e9):
+	case <-time.After(3 * 1e9):
 		return nil
 	}
 }
@@ -74,7 +74,7 @@ func (dfc *DiskFileCache) Query(tokens []string) *CachedFile {
 	select {
 	case result := <-search.Response:
 		return result
-	case <- time.After(3 * 1e9):
+	case <-time.After(3 * 1e9):
 		return nil
 	}
 }
@@ -91,26 +91,26 @@ func fileCache(query chan QueryCachedFiles, warm chan WarmCachedFiles, warmAndQu
 	for {
 		select {
 		case command, ok := <-warm:
-		{
-			if !ok {
-				return
+			{
+				if !ok {
+					return
+				}
+				download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
 			}
-			download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
-		}
 		case command, ok := <-warmAndQuery:
-		{
-			if !ok {
-				return
+			{
+				if !ok {
+					return
+				}
+				command.Response <- download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
 			}
-			command.Response <- download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
-		}
 		case command, ok := <-query:
-		{
-			if !ok {
-				return
+			{
+				if !ok {
+					return
+				}
+				command.Response <- findCachedFile(command.Query, cacheDirectory, cachedFiles, cachedFileAliases)
 			}
-			command.Response <- findCachedFile(command.Query, cacheDirectory, cachedFiles, cachedFileAliases)
-		}
 		}
 	}
 }
