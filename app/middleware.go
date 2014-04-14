@@ -34,6 +34,9 @@ type DiskFileCache struct {
 	query        chan QueryCachedFiles
 	warm         chan WarmCachedFiles
 	warmAndQuery chan WarmAndQueryCachedFiles
+
+	cachedFiles map[string]*CachedFile
+	cachedFileAliases map[string]string
 }
 
 func NewDiskFileCache(basePath string) *DiskFileCache {
@@ -41,8 +44,10 @@ func NewDiskFileCache(basePath string) *DiskFileCache {
 	diskFileCache.query = make(chan QueryCachedFiles, 10)
 	diskFileCache.warm = make(chan WarmCachedFiles, 10)
 	diskFileCache.warmAndQuery = make(chan WarmAndQueryCachedFiles, 10)
+	diskFileCache.cachedFiles = make(map[string]*CachedFile)
+	diskFileCache.cachedFileAliases = make(map[string]string)
 
-	go fileCache(diskFileCache.query, diskFileCache.warm, diskFileCache.warmAndQuery, basePath)
+	go diskFileCache.fileCache(basePath)
 
 	return diskFileCache
 }
@@ -84,38 +89,36 @@ func (dfc *DiskFileCache) Warm(url string, fileAliases []string) {
 	dfc.warm <- command
 }
 
-func fileCache(query chan QueryCachedFiles, warm chan WarmCachedFiles, warmAndQuery chan WarmAndQueryCachedFiles, cacheDirectory string) {
-	cachedFiles := make(map[string]*CachedFile)
-	cachedFileAliases := make(map[string]string)
-	initCachedFiles(cacheDirectory, cachedFiles, cachedFileAliases)
+func (dfc *DiskFileCache) fileCache(cacheDirectory string) {
+	dfc.initCachedFiles(cacheDirectory)
 	for {
 		select {
-		case command, ok := <-warm:
+		case command, ok := <-dfc.warm:
 			{
 				if !ok {
 					return
 				}
-				download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
+				dfc.download(command.Url, command.Aliases, cacheDirectory)
 			}
-		case command, ok := <-warmAndQuery:
+		case command, ok := <-dfc.warmAndQuery:
 			{
 				if !ok {
 					return
 				}
-				command.Response <- download(command.Url, command.Aliases, cacheDirectory, cachedFiles, cachedFileAliases)
+				command.Response <- dfc.download(command.Url, command.Aliases, cacheDirectory)
 			}
-		case command, ok := <-query:
+		case command, ok := <-dfc.query:
 			{
 				if !ok {
 					return
 				}
-				command.Response <- findCachedFile(command.Query, cacheDirectory, cachedFiles, cachedFileAliases)
+				command.Response <- dfc.findCachedFile(command.Query, cacheDirectory)
 			}
 		}
 	}
 }
 
-func initCachedFiles(cacheDirectory string, cachedFiles map[string]*CachedFile, aliases map[string]string) {
+func (dfc *DiskFileCache) initCachedFiles(cacheDirectory string) {
 	walkFn := func(path string, _ os.FileInfo, err error) error {
 		stat, err := os.Stat(path)
 		if err != nil {
@@ -136,9 +139,9 @@ func initCachedFiles(cacheDirectory string, cachedFiles map[string]*CachedFile, 
 				fileNameParts := strings.Split(fileName, ".")
 				contentHash := fileNameParts[0]
 				fileAliases := strings.Split(string(content), "\n")
-				cachedFiles[contentHash] = &CachedFile{fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
+				dfc.cachedFiles[contentHash] = &CachedFile{fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
 				for _, alias := range fileAliases {
-					aliases[alias] = contentHash
+					dfc.cachedFileAliases[alias] = contentHash
 				}
 			}
 		}
@@ -150,11 +153,11 @@ func initCachedFiles(cacheDirectory string, cachedFiles map[string]*CachedFile, 
 	}
 }
 
-func findCachedFile(tokens []string, _ string, cachedFiles map[string]*CachedFile, aliases map[string]string) *CachedFile {
+func (dfc *DiskFileCache) findCachedFile(tokens []string, _ string) *CachedFile {
 	for _, token := range tokens {
-		contentHash, hasContentHash := aliases[token]
+		contentHash, hasContentHash := dfc.cachedFileAliases[token]
 		if hasContentHash {
-			cachedFile, hasCachedFile := cachedFiles[contentHash]
+			cachedFile, hasCachedFile := dfc.cachedFiles[contentHash]
 			if hasCachedFile {
 				return cachedFile
 			}
@@ -163,8 +166,8 @@ func findCachedFile(tokens []string, _ string, cachedFiles map[string]*CachedFil
 	return nil
 }
 
-func download(url string, urlAliases []string, cacheDirectory string, cachedFiles map[string]*CachedFile, aliases map[string]string) *CachedFile {
-	existingCachedFile := findCachedFile(append(urlAliases, url), cacheDirectory, cachedFiles, aliases)
+func (dfc *DiskFileCache) download(url string, urlAliases []string, cacheDirectory string) *CachedFile {
+	existingCachedFile := dfc.findCachedFile(append(urlAliases, url), cacheDirectory)
 	if existingCachedFile != nil {
 		return existingCachedFile
 	}
@@ -197,9 +200,9 @@ func download(url string, urlAliases []string, cacheDirectory string, cachedFile
 	cachedFile.StoreAsset(body)
 	cachedFile.StoreMetadata()
 
-	cachedFiles[contentHash] = cachedFile
+	dfc.cachedFiles[contentHash] = cachedFile
 	for _, alias := range cachedFile.Aliases {
-		aliases[alias] = contentHash
+		dfc.cachedFileAliases[alias] = contentHash
 	}
 
 	return cachedFile
