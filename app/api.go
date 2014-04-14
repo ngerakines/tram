@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"os"
 )
 
 func HandleIndex(res http.ResponseWriter, req *http.Request, fileCache FileCache) {
@@ -22,9 +23,11 @@ func handleHead(res http.ResponseWriter, req *http.Request, fileCache FileCache)
 	if hasQuery && len(query) > 0 {
 		cachedFile := fileCache.Query(query)
 		if cachedFile != nil {
-			res.Header().Set("Content-Length", "0")
-			res.WriteHeader(200)
-			return
+			if _, err := os.Stat(cachedFile.Path); err == nil {
+				res.Header().Set("Content-Length", "0")
+				res.WriteHeader(200)
+				return
+			}
 		}
 	}
 	res.Header().Set("Content-Length", "0")
