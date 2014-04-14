@@ -26,7 +26,7 @@ type DiskFileCacheConfig struct {
 
 var DefaultDiskFileCacheConfig = DiskFileCacheConfig{
 	downloader: DedupeWrapDownloader(defaultRemoteFileFetcher),
-	lruSize: 33554432, // 32 megabytes
+	lruSize:    33554432, // 32 megabytes
 	// NKG: I know.
 	basePath: func() string {
 		pwd, err := os.Getwd()
@@ -48,7 +48,7 @@ type DiskFileCache struct {
 	evictions         chan string
 	downloadListeners *DownloadListeners
 	downloadPool      *DownloadPool
-	lru *LRUCache
+	lru               *LRUCache
 
 	cachedFiles       map[string]*CachedFile
 	cachedFileAliases map[string]string

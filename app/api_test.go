@@ -67,7 +67,6 @@ func buildConfig(cacheDir string) (DiskFileCacheConfig, *MockDownloader) {
 	mockDownloader.payloads["http://localhost:3001/6ce8a69121f4fdcb156772ff00c3828ae542f00b"] = []byte("/miniature-dubstep")
 	mockDownloader.payloads["http://localhost:3001/ffdefcd0d443d73f4058e33bec27c5cabb2ac1c1"] = []byte("/elasticservices")
 
-
 	return DiskFileCacheConfig{DedupeWrapDownloader(mockDownloader.download), cacheDirectory, 24}, mockDownloader
 }
 
@@ -381,14 +380,14 @@ func TestEviction(t *testing.T) {
 	m.Any("/", HandleIndex)
 	time.Sleep(500)
 
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias=1", "42099b4af021e53fd8fd4e056c2568d7c2e3ffa8", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/ef090dcea7b507772498cd2e67f2b148ae2609f6") + "&alias=2", "ef090dcea7b507772498cd2e67f2b148ae2609f6", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/a11f846da74df08c2e93ede56beefdde735ccc05") + "&alias=3", "a11f846da74df08c2e93ede56beefdde735ccc05", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/974a0682b121adda8d8bb4503d07672c6d65319c") + "&alias=4", "974a0682b121adda8d8bb4503d07672c6d65319c", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/f6cd811a6b41ae88b1aa5d0e7ab8e16cda349917") + "&alias=5", "f6cd811a6b41ae88b1aa5d0e7ab8e16cda349917", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/72a57722a7d426ca21bf52348f3a83c96a3cc72b") + "&alias=6", "72a57722a7d426ca21bf52348f3a83c96a3cc72b", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/fca08fb51c04e2cf57d2d78e229a28ff10a2c2d7") + "&alias=7", "fca08fb51c04e2cf57d2d78e229a28ff10a2c2d7", config)
-	request(t, m, "/?url=" + url.QueryEscape("http://localhost:3001/db28cadbe22a8dcbd65659c833ea91b8ad1246e5") + "&alias=8", "db28cadbe22a8dcbd65659c833ea91b8ad1246e5", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")+"&alias=1", "42099b4af021e53fd8fd4e056c2568d7c2e3ffa8", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/ef090dcea7b507772498cd2e67f2b148ae2609f6")+"&alias=2", "ef090dcea7b507772498cd2e67f2b148ae2609f6", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/a11f846da74df08c2e93ede56beefdde735ccc05")+"&alias=3", "a11f846da74df08c2e93ede56beefdde735ccc05", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/974a0682b121adda8d8bb4503d07672c6d65319c")+"&alias=4", "974a0682b121adda8d8bb4503d07672c6d65319c", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/f6cd811a6b41ae88b1aa5d0e7ab8e16cda349917")+"&alias=5", "f6cd811a6b41ae88b1aa5d0e7ab8e16cda349917", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/72a57722a7d426ca21bf52348f3a83c96a3cc72b")+"&alias=6", "72a57722a7d426ca21bf52348f3a83c96a3cc72b", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/fca08fb51c04e2cf57d2d78e229a28ff10a2c2d7")+"&alias=7", "fca08fb51c04e2cf57d2d78e229a28ff10a2c2d7", config)
+	request(t, m, "/?url="+url.QueryEscape("http://localhost:3001/db28cadbe22a8dcbd65659c833ea91b8ad1246e5")+"&alias=8", "db28cadbe22a8dcbd65659c833ea91b8ad1246e5", config)
 
 	time.Sleep(5000)
 
@@ -441,13 +440,13 @@ func TestEviction(t *testing.T) {
 }
 
 func request(t *testing.T, m *martini.ClassicMartini, uri, fileName string, config DiskFileCacheConfig) {
-		res := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", uri, nil)
-		m.ServeHTTP(res, req)
+	res := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", uri, nil)
+	m.ServeHTTP(res, req)
 
-		if res.Code != 200 {
-			t.Error("Request not successful: %s", uri)
-		}
+	if res.Code != 200 {
+		t.Error("Request not successful: %s", uri)
+	}
 	checkFileExists(t, fileName, config)
 }
 

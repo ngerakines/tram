@@ -56,9 +56,9 @@ type entry struct {
 
 func NewLRUCache(capacity uint64) *LRUCache {
 	return &LRUCache{
-		list:     list.New(),
-		table:    make(map[string]*list.Element),
-		capacity: capacity,
+		list:              list.New(),
+		table:             make(map[string]*list.Element),
+		capacity:          capacity,
 		evictionListeners: make([]chan string, 0, 0),
 	}
 }

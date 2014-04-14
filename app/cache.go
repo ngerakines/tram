@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"strings"
 	"os"
+	"strings"
 )
 
 type QueryCachedFiles struct {

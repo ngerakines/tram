@@ -1,8 +1,8 @@
 package app
 
 import (
-	"testing"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -70,7 +70,6 @@ func TestPoolMany(t *testing.T) {
 	dp.Download("http://localhost/1")
 	dp.Download("http://localhost/2")
 
-
 	if dp.IsInTransit("http://localhost/1") == false {
 		t.Error("Url 'http://localhost/1' should be in transit.")
 	}
@@ -100,16 +99,18 @@ func TestDedupe(t *testing.T) {
 	downloader := DedupeWrapDownloader(md.download)
 
 	var wg sync.WaitGroup
-	go func(){
+	go func() {
 		wg.Add(1)
-		_, err := downloader("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"); if err != nil {
+		_, err := downloader("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")
+		if err != nil {
 			t.Error(err.Error())
 		}
 		defer wg.Done()
 	}()
-	go func(){
+	go func() {
 		wg.Add(1)
-		_, err := downloader("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"); if err == nil {
+		_, err := downloader("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")
+		if err == nil {
 			t.Error(err.Error())
 		}
 		defer wg.Done()

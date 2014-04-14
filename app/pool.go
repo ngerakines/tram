@@ -11,8 +11,8 @@ import (
 type RemoteFileFetcher func(url string) ([]byte, error)
 
 type DedupingDownloader struct {
-	wrappedDownloader   RemoteFileFetcher
-	downloadPool *DownloadPool
+	wrappedDownloader RemoteFileFetcher
+	downloadPool      *DownloadPool
 }
 
 type DownloadError struct {
