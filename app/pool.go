@@ -11,7 +11,7 @@ import (
 type RemoteFileFetcher func(url string) ([]byte, error)
 
 type DedupingDownloader struct {
-	downloader   RemoteFileFetcher
+	wrappedDownloader   RemoteFileFetcher
 	downloadPool *DownloadPool
 }
 
@@ -28,13 +28,13 @@ func (err DownloadError) Error() string {
 	return err.message
 }
 
-func (dd *DedupingDownloader) download(url string) ([]byte, error) {
+func (dd *DedupingDownloader) downloader(url string) ([]byte, error) {
 	if dd.downloadPool.IsInTransit(url) {
 		fmt.Println("Cannot download", url, "because it is already in transit.")
 		return nil, DownloadError{"Url already being downloaded"}
 	}
 	dd.downloadPool.Download(url)
-	body, error := dd.downloader(url)
+	body, error := dd.wrappedDownloader(url)
 	dd.downloadPool.Finished(url)
 	return body, error
 }
@@ -67,7 +67,7 @@ func NewDownloadPool() *DownloadPool {
 
 func DedupeWrapDownloader(downloader RemoteFileFetcher) RemoteFileFetcher {
 	dedupingDownloader := new(DedupingDownloader)
-	dedupingDownloader.downloader = downloader
+	dedupingDownloader.wrappedDownloader = downloader
 	dedupingDownloader.downloadPool = NewDownloadPool()
 	return dedupingDownloader.downloader
 }

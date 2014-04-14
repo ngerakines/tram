@@ -59,7 +59,7 @@ func buildConfig(cacheDir string) (DiskFileCacheConfig, *MockDownloader) {
 	mockDownloader.payloads["http://localhost:3001/ef090dcea7b507772498cd2e67f2b148ae2609f6"] = []byte("/tram")
 	mockDownloader.payloads["http://localhost:3001/a11f846da74df08c2e93ede56beefdde735ccc05"] = []byte("/tram-chef-cookbook")
 
-	return DiskFileCacheConfig{mockDownloader.download, cacheDirectory}, mockDownloader
+	return DiskFileCacheConfig{DedupeWrapDownloader(mockDownloader.download), cacheDirectory}, mockDownloader
 }
 
 func TestEmpty(t *testing.T) {
@@ -347,6 +347,8 @@ func TestWarm(t *testing.T) {
 			t.Error("File metadata doesn't exist at " + filePath + ".metadata")
 		}
 	}()
+
+	time.Sleep(500)
 
 	if len(mockDownloader.counts) != 1 {
 		t.Error("mockDownloader.counts should have 1 entry")
