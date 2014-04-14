@@ -209,13 +209,7 @@ func (dfc *DiskFileCache) download(url string, urlAliases []string) *CachedFile 
 		return existingCachedFile
 	}
 
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := dfc.config.downloader(url)
 	if err != nil {
 		fmt.Println(err.Error())
 		return nil
