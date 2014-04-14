@@ -50,7 +50,6 @@ type DiskFileCache struct {
 	downloadPool      *DownloadPool
 	lru               *LRUCache
 
-	// cachedFiles       map[string]*CachedFile
 	cachedFileAliases map[string]string
 }
 
@@ -76,7 +75,6 @@ func NewDiskFileCache(config DiskFileCacheConfig) *DiskFileCache {
 	diskFileCache.downloadListeners = NewDownloadListeners()
 	diskFileCache.evictions = make(chan *Item, 25)
 	diskFileCache.lru = NewLRUCache(config.lruSize)
-	// diskFileCache.cachedFiles = make(map[string]*CachedFile)
 	diskFileCache.cachedFileAliases = make(map[string]string)
 
 	diskFileCache.lru.AddListener(diskFileCache.evictions)
@@ -187,7 +185,6 @@ func (dfc *DiskFileCache) initCachedFiles() {
 				contentHash := fileNameParts[0]
 				fileAliases := strings.Split(string(content), "\n")
 				dfc.lru.addNew(contentHash, &CachedFile{contentHash, fileAliases[0], fileAliases, filepath.Join(dir, contentHash)})
-				// dfc.cachedFiles[contentHash] = &CachedFile{contentHash, fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
 				for _, alias := range fileAliases {
 					dfc.cachedFileAliases[alias] = contentHash
 				}
@@ -205,7 +202,6 @@ func (dfc *DiskFileCache) findCachedFile(tokens []string) *CachedFile {
 	for _, token := range tokens {
 		contentHash, hasContentHash := dfc.cachedFileAliases[token]
 		if hasContentHash {
-			// cachedFile, hasCachedFile := dfc.cachedFiles[contentHash]
 			cachedFile, hasCachedFile := dfc.lru.Get(contentHash)
 			if hasCachedFile {
 				return cachedFile.(*CachedFile)
@@ -235,7 +231,6 @@ func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, cha
 
 func (dfc *DiskFileCache) handleDownload(cachedFile *CachedFile) {
 	dfc.lru.Set(cachedFile.ContentHash, cachedFile)
-	// dfc.cachedFiles[cachedFile.ContentHash] = cachedFile
 	for _, alias := range cachedFile.Aliases {
 		dfc.cachedFileAliases[alias] = cachedFile.ContentHash
 	}
