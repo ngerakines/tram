@@ -44,6 +44,7 @@ type DiskFileCache struct {
 	query        chan QueryCachedFiles
 	warm         chan WarmCachedFiles
 	warmAndQuery chan WarmAndQueryCachedFiles
+	downloads    chan *CachedFile
 
 	cachedFiles map[string]*CachedFile
 	cachedFileAliases map[string]string
@@ -81,6 +82,7 @@ func NewDiskFileCache(config DiskFileCacheConfig) *DiskFileCache {
 	diskFileCache.query = make(chan QueryCachedFiles, 10)
 	diskFileCache.warm = make(chan WarmCachedFiles, 10)
 	diskFileCache.warmAndQuery = make(chan WarmAndQueryCachedFiles, 10)
+	diskFileCache.downloads = make(chan *CachedFile)
 	diskFileCache.cachedFiles = make(map[string]*CachedFile)
 	diskFileCache.cachedFileAliases = make(map[string]string)
 
@@ -135,14 +137,17 @@ func (dfc *DiskFileCache) fileCache() {
 				if !ok {
 					return
 				}
-				dfc.download(command.Url, command.Aliases)
+				interestedPeeps := make([]chan *CachedFile, 0, 0)
+				dfc.download(command.Url, command.Aliases, interestedPeeps)
 			}
 		case command, ok := <-dfc.warmAndQuery:
 			{
 				if !ok {
 					return
 				}
-				command.Response <- dfc.download(command.Url, command.Aliases)
+				interestedPeeps := make([]chan *CachedFile, 0, 0)
+				interestedPeeps = append(interestedPeeps, command.Response)
+				dfc.download(command.Url, command.Aliases, interestedPeeps)
 			}
 		case command, ok := <-dfc.query:
 			{
@@ -150,6 +155,13 @@ func (dfc *DiskFileCache) fileCache() {
 					return
 				}
 				command.Response <- dfc.findCachedFile(command.Query)
+			}
+		case cachedFile, ok := <-dfc.downloads:
+			{
+				if !ok {
+					return
+				}
+				dfc.handleDownload(cachedFile)
 			}
 		}
 	}
@@ -176,7 +188,7 @@ func (dfc *DiskFileCache) initCachedFiles() {
 				fileNameParts := strings.Split(fileName, ".")
 				contentHash := fileNameParts[0]
 				fileAliases := strings.Split(string(content), "\n")
-				dfc.cachedFiles[contentHash] = &CachedFile{fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
+				dfc.cachedFiles[contentHash] = &CachedFile{contentHash, fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
 				for _, alias := range fileAliases {
 					dfc.cachedFileAliases[alias] = contentHash
 				}
@@ -203,21 +215,33 @@ func (dfc *DiskFileCache) findCachedFile(tokens []string) *CachedFile {
 	return nil
 }
 
-func (dfc *DiskFileCache) download(url string, urlAliases []string) *CachedFile {
+func (dfc *DiskFileCache) download(url string, urlAliases []string, channels []chan *CachedFile) {
 	existingCachedFile := dfc.findCachedFile(append(urlAliases, url))
 	if existingCachedFile != nil {
-		return existingCachedFile
+		for _, channel := range channels {
+			channel <- existingCachedFile
+		}
 	}
+	go asyncDownload(dfc.config.downloader, dfc.config.basePath, url, urlAliases, append(channels, dfc.downloads))
+}
 
-	body, err := dfc.config.downloader(url)
+func (dfc *DiskFileCache) handleDownload(cachedFile *CachedFile) {
+	dfc.cachedFiles[cachedFile.ContentHash] = cachedFile
+	for _, alias := range cachedFile.Aliases {
+		dfc.cachedFileAliases[alias] = cachedFile.ContentHash
+	}
+}
+
+func asyncDownload(downloader RemoteFileFetcher, basePath, url string, urlAliases []string, channels []chan *CachedFile) {
+	body, err := downloader(url)
 	if err != nil {
 		fmt.Println(err.Error())
-		return nil
+		return
 	}
 
 	urlHash := hash([]byte(url))
 	contentHash := hash(body)
-	path := filepath.Join(dfc.config.basePath, contentHash)
+	path := filepath.Join(basePath, contentHash)
 
 	allAliases := make(map[string]bool)
 	allAliases[url] = true
@@ -227,14 +251,11 @@ func (dfc *DiskFileCache) download(url string, urlAliases []string) *CachedFile 
 		allAliases[alias] = true
 	}
 
-	cachedFile := &CachedFile{url, mapKeys(allAliases), path}
+	cachedFile := &CachedFile{contentHash, url, mapKeys(allAliases), path}
 	cachedFile.StoreAsset(body)
 	cachedFile.StoreMetadata()
 
-	dfc.cachedFiles[contentHash] = cachedFile
-	for _, alias := range cachedFile.Aliases {
-		dfc.cachedFileAliases[alias] = contentHash
+	for _, channel := range channels {
+		channel <- cachedFile
 	}
-
-	return cachedFile
 }

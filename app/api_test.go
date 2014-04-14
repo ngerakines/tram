@@ -313,3 +313,42 @@ func TestDoubleDownload(t *testing.T) {
 
 	os.RemoveAll(config.basePath)
 }
+
+func TestWarm(t *testing.T) {
+	config, mockDownloader := buildConfig(".cache5")
+	newDiskFileCache := NewDiskFileCache(config)
+	defer newDiskFileCache.Close()
+
+	m := martini.Classic()
+	m.Use(NewFileCacheMiddleware(newDiskFileCache))
+
+	m.Any("/", HandleIndex)
+	time.Sleep(500)
+
+	func() {
+		res := httptest.NewRecorder()
+		req, _ := http.NewRequest("POST", "/", strings.NewReader("url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias="))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+		m.ServeHTTP(res, req)
+		if res.Code != 202 {
+			t.Error("All requests should be accepted.")
+		}
+		time.Sleep(250)
+		filePath := filepath.Join(config.basePath, "42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Error("File doesn't exist at " + filePath)
+		}
+		if _, err := os.Stat(filePath + ".metadata"); os.IsNotExist(err) {
+			t.Error("File metadata doesn't exist at " + filePath + ".metadata")
+		}
+	}()
+
+	if len(mockDownloader.counts) != 1 {
+		t.Error("mockDownloader.counts should have 1 entry")
+	}
+	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]; if (!hasValue || value != 1) {
+		t.Error("Url should have been requested just once.")
+	}
+
+	os.RemoveAll(config.basePath)
+}
