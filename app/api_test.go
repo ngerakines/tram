@@ -49,7 +49,7 @@ func buildConfig(cacheDir string) DiskFileCacheConfig {
 	return DiskFileCacheConfig{mockDownloader.download, cacheDirectory}
 }
 
-func Test_Basic(t *testing.T) {
+func TestEmpty(t *testing.T) {
 	newDiskFileCache := NewDiskFileCache(buildConfig(".cache1"))
 	defer newDiskFileCache.Close()
 
@@ -91,7 +91,7 @@ func Test_Basic(t *testing.T) {
 	os.RemoveAll(newDiskFileCache.config.basePath)
 }
 
-func Test_Get(t *testing.T) {
+func TestGet(t *testing.T) {
 	config := buildConfig(".cache2")
 	newDiskFileCache := NewDiskFileCache(config)
 	defer newDiskFileCache.Close()
@@ -103,7 +103,7 @@ func Test_Get(t *testing.T) {
 	time.Sleep(500)
 
 	func() {
-		uri := "/?url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias=github:ngerakines"
+		uri := "/?url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias=base"
 		res := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", uri, nil)
 		m.ServeHTTP(res, req)
@@ -120,6 +120,98 @@ func Test_Get(t *testing.T) {
 		}
 	}()
 
+	func() {
+		uri := "/?url=" + url.QueryEscape("http://localhost:3001/ef090dcea7b507772498cd2e67f2b148ae2609f6") + "&alias=tram"
+		res := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", uri, nil)
+		m.ServeHTTP(res, req)
+
+		if res.Code != 200 {
+			t.Error("File should be downloaded.")
+		}
+		filePath := filepath.Join(config.basePath, "ef090dcea7b507772498cd2e67f2b148ae2609f6")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Error("File doesn't exist at " + filePath)
+		}
+		if _, err := os.Stat(filePath + ".metadata"); os.IsNotExist(err) {
+			t.Error("File metadata doesn't exist at " + filePath + ".metadata")
+		}
+	}()
+
+	func() {
+		uri := "/?url=" + url.QueryEscape("http://localhost:3001/a11f846da74df08c2e93ede56beefdde735ccc05") + "&alias=tram-chef-cookbook"
+		res := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", uri, nil)
+		m.ServeHTTP(res, req)
+
+		if res.Code != 200 {
+			t.Error("File should be downloaded.")
+		}
+		filePath := filepath.Join(config.basePath, "a11f846da74df08c2e93ede56beefdde735ccc05")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Error("File doesn't exist at " + filePath)
+		}
+		if _, err := os.Stat(filePath + ".metadata"); os.IsNotExist(err) {
+			t.Error("File metadata doesn't exist at " + filePath + ".metadata")
+		}
+	}()
+
 	os.RemoveAll(config.basePath)
 }
 
+func TestFsIssues(t *testing.T) {
+	config := buildConfig(".cache3")
+	newDiskFileCache := NewDiskFileCache(config)
+	defer newDiskFileCache.Close()
+
+	m := martini.Classic()
+	m.Use(NewFileCacheMiddleware(newDiskFileCache))
+
+	m.Any("/", HandleIndex)
+	time.Sleep(500)
+
+	func() {
+		uri := "/?url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias=base"
+		res := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", uri, nil)
+		m.ServeHTTP(res, req)
+
+		if res.Code != 200 {
+			t.Error("File should be downloaded.")
+		}
+		filePath := filepath.Join(config.basePath, "42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Error("File doesn't exist at " + filePath)
+		}
+		if _, err := os.Stat(filePath + ".metadata"); os.IsNotExist(err) {
+			t.Error("File metadata doesn't exist at " + filePath + ".metadata")
+		}
+	}()
+
+	func() {
+		uri := "/?query=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")
+		res := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", uri, nil)
+		m.ServeHTTP(res, req)
+
+		if res.Code != 200 {
+			t.Error("File should be downloaded.")
+		}
+	}()
+
+	os.Remove(filepath.Join(config.basePath, "42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"))
+	os.Remove(filepath.Join(config.basePath, "42099b4af021e53fd8fd4e056c2568d7c2e3ffa8.metadata"))
+
+	func() {
+		uri := "/?query=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")
+		res := httptest.NewRecorder()
+		req, _ := http.NewRequest("GET", uri, nil)
+		m.ServeHTTP(res, req)
+
+		if res.Code != 404 {
+			t.Error("File cannot be downloaded.")
+		}
+	}()
+
+	os.RemoveAll(config.basePath)
+}
