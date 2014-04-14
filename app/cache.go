@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"strings"
@@ -57,10 +56,4 @@ func mapKeys(source map[string]bool) []string {
 		values = append(values, key)
 	}
 	return values
-}
-
-func hash(bytes []byte) string {
-	hasher := sha1.New()
-	hasher.Write(bytes)
-	return fmt.Sprintf("%x", hasher.Sum(nil))
 }

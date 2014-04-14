@@ -352,3 +352,17 @@ func TestWarm(t *testing.T) {
 
 	os.RemoveAll(config.basePath)
 }
+
+/*
+TODO:
+
+TestDedupe
+ - Create a mock client that takes 2-3 seconds to return
+ - Send multiple requests for the same url
+ - Verify that only one request was made
+
+TestListeners
+ - Create a mock client
+ - Send multiple requests for two urls
+ - Verify that the different requests didn't get the same content
+ */

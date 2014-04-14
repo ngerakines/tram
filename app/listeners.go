@@ -1,9 +1,14 @@
 package app
 
-import "time"
+import (
+	"time"
+	"sync"
+)
 
 type DownloadListeners struct {
-	listeners []DownloadListener
+	mu   sync.Mutex
+	listeners map[string]DownloadListener
+	um *UidManager
 }
 
 type DownloadListener struct {
@@ -15,21 +20,32 @@ type DownloadListener struct {
 
 func NewDownloadListeners() *DownloadListeners {
 	downloadListeners := new(DownloadListeners)
-	downloadListeners.listeners = make([]DownloadListener, 0, 0)
+	downloadListeners.listeners = make(map[string]DownloadListener)
+	downloadListeners.mu = sync.Mutex{}
+	downloadListeners.um = NewUidManager()
 	return downloadListeners
 }
 
 func (downloadListeners *DownloadListeners) Add(url string, aliases []string, channel chan *CachedFile) {
 	downloadListener := DownloadListener{when: time.Now(), url: url, aliases: aliases, channel: channel }
-	downloadListeners.listeners = append(downloadListeners.listeners, downloadListener)
+	downloadListeners.mu.Lock()
+	downloadListeners.listeners[downloadListeners.um.GenerateHex()] = downloadListener
+	downloadListeners.mu.Unlock()
 }
 
 func (downloadListeners *DownloadListeners) Notify(cachedFile *CachedFile) {
-	for _, downloadListener := range downloadListeners.listeners {
+	downloadListeners.mu.Lock()
+	toRemove := make([]string, 0, 0)
+	for key, downloadListener := range downloadListeners.listeners {
 		if shouldNotify(cachedFile, downloadListener) {
 			downloadListener.channel <- cachedFile
+			toRemove = append(toRemove, key)
 		}
 	}
+	for _, key := range toRemove {
+		delete(downloadListeners.listeners, key)
+	}
+	downloadListeners.mu.Unlock()
 }
 
 func shouldNotify(cachedFile *CachedFile, downloadListener DownloadListener) bool {
