@@ -45,12 +45,12 @@ type DiskFileCache struct {
 	warm              chan WarmCachedFiles
 	warmAndQuery      chan WarmAndQueryCachedFiles
 	downloads         chan *CachedFile
-	evictions         chan string
+	evictions         chan *Item
 	downloadListeners *DownloadListeners
 	downloadPool      *DownloadPool
 	lru               *LRUCache
 
-	cachedFiles       map[string]*CachedFile
+	// cachedFiles       map[string]*CachedFile
 	cachedFileAliases map[string]string
 }
 
@@ -74,9 +74,9 @@ func NewDiskFileCache(config DiskFileCacheConfig) *DiskFileCache {
 	diskFileCache.warmAndQuery = make(chan WarmAndQueryCachedFiles, 10)
 	diskFileCache.downloads = make(chan *CachedFile, 25)
 	diskFileCache.downloadListeners = NewDownloadListeners()
-	diskFileCache.evictions = make(chan string, 25)
+	diskFileCache.evictions = make(chan *Item, 25)
 	diskFileCache.lru = NewLRUCache(config.lruSize)
-	diskFileCache.cachedFiles = make(map[string]*CachedFile)
+	// diskFileCache.cachedFiles = make(map[string]*CachedFile)
 	diskFileCache.cachedFileAliases = make(map[string]string)
 
 	diskFileCache.lru.AddListener(diskFileCache.evictions)
@@ -186,7 +186,8 @@ func (dfc *DiskFileCache) initCachedFiles() {
 				fileNameParts := strings.Split(fileName, ".")
 				contentHash := fileNameParts[0]
 				fileAliases := strings.Split(string(content), "\n")
-				dfc.cachedFiles[contentHash] = &CachedFile{contentHash, fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
+				dfc.lru.addNew(contentHash, &CachedFile{contentHash, fileAliases[0], fileAliases, filepath.Join(dir, contentHash)})
+				// dfc.cachedFiles[contentHash] = &CachedFile{contentHash, fileAliases[0], fileAliases, filepath.Join(dir, contentHash)}
 				for _, alias := range fileAliases {
 					dfc.cachedFileAliases[alias] = contentHash
 				}
@@ -204,9 +205,10 @@ func (dfc *DiskFileCache) findCachedFile(tokens []string) *CachedFile {
 	for _, token := range tokens {
 		contentHash, hasContentHash := dfc.cachedFileAliases[token]
 		if hasContentHash {
-			cachedFile, hasCachedFile := dfc.cachedFiles[contentHash]
+			// cachedFile, hasCachedFile := dfc.cachedFiles[contentHash]
+			cachedFile, hasCachedFile := dfc.lru.Get(contentHash)
 			if hasCachedFile {
-				return cachedFile
+				return cachedFile.(*CachedFile)
 			}
 		}
 	}
@@ -232,23 +234,19 @@ func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, cha
 }
 
 func (dfc *DiskFileCache) handleDownload(cachedFile *CachedFile) {
-	dfc.lru.addNew(cachedFile.ContentHash, cachedFile)
-	dfc.cachedFiles[cachedFile.ContentHash] = cachedFile
+	dfc.lru.Set(cachedFile.ContentHash, cachedFile)
+	// dfc.cachedFiles[cachedFile.ContentHash] = cachedFile
 	for _, alias := range cachedFile.Aliases {
 		dfc.cachedFileAliases[alias] = cachedFile.ContentHash
 	}
 	dfc.downloadListeners.Notify(cachedFile)
 }
 
-func (dfc *DiskFileCache) handleEviction(evicted string) {
-	cachedFile, hasCachedFile := dfc.cachedFiles[evicted]
-	if hasCachedFile {
-		for _, alias := range cachedFile.Aliases {
-			delete(dfc.cachedFileAliases, alias)
-		}
-		delete(dfc.cachedFiles, evicted)
-		cachedFile.Delete()
+func (dfc *DiskFileCache) handleEviction(evicted *Item) {
+	for _, alias := range evicted.Value.(*CachedFile).Aliases {
+		delete(dfc.cachedFileAliases, alias)
 	}
+	evicted.Value.(*CachedFile).Delete()
 }
 
 func asyncDownload(downloader RemoteFileFetcher, basePath, url string, urlAliases []string, callback chan *CachedFile) {

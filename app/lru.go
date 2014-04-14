@@ -14,7 +14,7 @@ package app
 
 import (
 	"container/list"
-	"fmt"
+	_ "fmt"
 	"sync"
 	"time"
 )
@@ -34,7 +34,7 @@ type LRUCache struct {
 	capacity uint64
 
 	// Who wants to know about evictions?
-	evictionListeners []chan string
+	evictionListeners []chan *Item
 }
 
 // Values that go into LRUCache need to satisfy this interface.
@@ -59,11 +59,11 @@ func NewLRUCache(capacity uint64) *LRUCache {
 		list:              list.New(),
 		table:             make(map[string]*list.Element),
 		capacity:          capacity,
-		evictionListeners: make([]chan string, 0, 0),
+		evictionListeners: make([]chan *Item, 0, 0),
 	}
 }
 
-func (lru *LRUCache) AddListener(listener chan string) {
+func (lru *LRUCache) AddListener(listener chan *Item) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
 
@@ -82,6 +82,7 @@ func (lru *LRUCache) Get(key string) (v Value, ok bool) {
 	return element.Value.(*entry).value, true
 }
 
+
 func (lru *LRUCache) Set(key string, value Value) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -93,6 +94,7 @@ func (lru *LRUCache) Set(key string, value Value) {
 	}
 }
 
+/*
 func (lru *LRUCache) SetIfAbsent(key string, value Value) {
 	lru.mu.Lock()
 	defer lru.mu.Unlock()
@@ -175,6 +177,7 @@ func (lru *LRUCache) Items() []Item {
 	}
 	return items
 }
+*/
 
 func (lru *LRUCache) updateInplace(element *list.Element, value Value) {
 	valueSize := value.Size()
@@ -208,7 +211,7 @@ func (lru *LRUCache) checkCapacity() {
 		delete(lru.table, delValue.key)
 		lru.size -= uint64(delValue.size)
 		for _, listener := range lru.evictionListeners {
-			listener <- delElem.Value.(*entry).key
+			listener <- &Item{Key: delElem.Value.(*entry).key, Value: delElem.Value.(*entry).value}
 		}
 	}
 }
