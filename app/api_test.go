@@ -1,8 +1,7 @@
-package main
+package app
 
 import (
 	"github.com/codegangsta/martini"
-	"github.com/ngerakines/tram/app"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -21,13 +20,13 @@ func Test_Basic(t *testing.T) {
 	cacheDirectory := filepath.Join(pwd, ".cache1")
 	os.MkdirAll(cacheDirectory, 00777)
 
-	newDiskFileCache := app.NewDiskFileCache(cacheDirectory)
+	newDiskFileCache := NewDiskFileCache(cacheDirectory)
 	defer newDiskFileCache.Close()
 
 	m := martini.Classic()
-	m.Use(app.NewFileCacheMiddleware(newDiskFileCache))
+	m.Use(NewFileCacheMiddleware(newDiskFileCache))
 
-	m.Any("/", app.HandleIndex)
+	m.Any("/", HandleIndex)
 
 	func() {
 		res := httptest.NewRecorder()
@@ -70,13 +69,13 @@ func Test_Get(t *testing.T) {
 	cacheDirectory := filepath.Join(pwd, ".cache2")
 	os.MkdirAll(cacheDirectory, 00777)
 
-	newDiskFileCache := app.NewDiskFileCache(cacheDirectory)
+	newDiskFileCache := NewDiskFileCache(cacheDirectory)
 	defer newDiskFileCache.Close()
 
 	m := martini.Classic()
-	m.Use(app.NewFileCacheMiddleware(newDiskFileCache))
+	m.Use(NewFileCacheMiddleware(newDiskFileCache))
 
-	m.Any("/", app.HandleIndex)
+	m.Any("/", HandleIndex)
 	time.Sleep(1000)
 
 	func() {
