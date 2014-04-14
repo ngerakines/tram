@@ -12,15 +12,18 @@ import (
 	"time"
 )
 
-func Test_Basic(t *testing.T) {
+func buildConfig(cacheDir string) DiskFileCacheConfig {
 	pwd, err := os.Getwd()
 	if err != nil {
 		panic(err.Error())
 	}
-	cacheDirectory := filepath.Join(pwd, ".cache1")
+	cacheDirectory := filepath.Join(pwd, cacheDir)
 	os.MkdirAll(cacheDirectory, 00777)
+	return DiskFileCacheConfig{defaultRemoteFileFetcher, cacheDirectory}
+}
 
-	newDiskFileCache := NewDiskFileCache(cacheDirectory)
+func Test_Basic(t *testing.T) {
+	newDiskFileCache := NewDiskFileCache(buildConfig(".cache1"))
 	defer newDiskFileCache.Close()
 
 	m := martini.Classic()
@@ -58,18 +61,11 @@ func Test_Basic(t *testing.T) {
 		}
 	}()
 
-	os.RemoveAll(cacheDirectory)
+	os.RemoveAll(newDiskFileCache.config.basePath)
 }
 
 func Test_Get(t *testing.T) {
-	pwd, err := os.Getwd()
-	if err != nil {
-		panic(err.Error())
-	}
-	cacheDirectory := filepath.Join(pwd, ".cache2")
-	os.MkdirAll(cacheDirectory, 00777)
-
-	newDiskFileCache := NewDiskFileCache(cacheDirectory)
+	newDiskFileCache := NewDiskFileCache(buildConfig(".cache2"))
 	defer newDiskFileCache.Close()
 
 	m := martini.Classic()
@@ -89,5 +85,5 @@ func Test_Get(t *testing.T) {
 		}
 	}()
 
-	os.RemoveAll(cacheDirectory)
+	os.RemoveAll(newDiskFileCache.config.basePath)
 }
