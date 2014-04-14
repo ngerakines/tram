@@ -8,15 +8,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
-	"sync"
 )
 
 type MockDownloader struct {
 	payloads map[string][]byte
-	counts map[string]int
-	mu   sync.Mutex
+	counts   map[string]int
+	mu       sync.Mutex
 }
 
 type StringError struct {
@@ -177,13 +177,16 @@ func TestGet(t *testing.T) {
 	if len(mockDownloader.counts) != 3 {
 		t.Error("mockDownloader.counts should have 3 entries")
 	}
-	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]; if (!hasValue || value != 1) {
+	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]
+	if !hasValue || value != 1 {
 		t.Error("Url should have been requested just once.")
 	}
-	value, hasValue = mockDownloader.counts["http://localhost:3001/ef090dcea7b507772498cd2e67f2b148ae2609f6"]; if (!hasValue || value != 1) {
+	value, hasValue = mockDownloader.counts["http://localhost:3001/ef090dcea7b507772498cd2e67f2b148ae2609f6"]
+	if !hasValue || value != 1 {
 		t.Error("Url should have been requested just once.")
 	}
-	value, hasValue = mockDownloader.counts["http://localhost:3001/a11f846da74df08c2e93ede56beefdde735ccc05"]; if (!hasValue || value != 1) {
+	value, hasValue = mockDownloader.counts["http://localhost:3001/a11f846da74df08c2e93ede56beefdde735ccc05"]
+	if !hasValue || value != 1 {
 		t.Error("Url should have been requested just once.")
 	}
 
@@ -258,7 +261,8 @@ func TestFsIssues(t *testing.T) {
 	if len(mockDownloader.counts) != 1 {
 		t.Error("mockDownloader.counts should have 1 entry")
 	}
-	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]; if (!hasValue || value != 1) {
+	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]
+	if !hasValue || value != 1 {
 		t.Error("Url should have been requested just once.")
 	}
 
@@ -296,7 +300,7 @@ func TestDoubleDownload(t *testing.T) {
 
 	func() {
 		res := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/", strings.NewReader("url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias="))
+		req, _ := http.NewRequest("POST", "/", strings.NewReader("url="+url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")+"&alias="))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 		m.ServeHTTP(res, req)
 		if res.Code != 202 {
@@ -307,7 +311,8 @@ func TestDoubleDownload(t *testing.T) {
 	if len(mockDownloader.counts) != 1 {
 		t.Error("mockDownloader.counts should have 1 entry")
 	}
-	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]; if (!hasValue || value != 1) {
+	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]
+	if !hasValue || value != 1 {
 		t.Error("Url should have been requested just once.")
 	}
 
@@ -327,7 +332,7 @@ func TestWarm(t *testing.T) {
 
 	func() {
 		res := httptest.NewRecorder()
-		req, _ := http.NewRequest("POST", "/", strings.NewReader("url=" + url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8") + "&alias="))
+		req, _ := http.NewRequest("POST", "/", strings.NewReader("url="+url.QueryEscape("http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8")+"&alias="))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 		m.ServeHTTP(res, req)
 		if res.Code != 202 {
@@ -346,7 +351,8 @@ func TestWarm(t *testing.T) {
 	if len(mockDownloader.counts) != 1 {
 		t.Error("mockDownloader.counts should have 1 entry")
 	}
-	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]; if (!hasValue || value != 1) {
+	value, hasValue := mockDownloader.counts["http://localhost:3001/42099b4af021e53fd8fd4e056c2568d7c2e3ffa8"]
+	if !hasValue || value != 1 {
 		t.Error("Url should have been requested just once.")
 	}
 
@@ -365,4 +371,4 @@ TestListeners
  - Create a mock client
  - Send multiple requests for two urls
  - Verify that the different requests didn't get the same content
- */
+*/

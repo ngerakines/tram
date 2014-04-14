@@ -1,19 +1,19 @@
 package app
 
 import (
-	"time"
 	"sync"
+	"time"
 )
 
 type DownloadListeners struct {
-	mu   sync.Mutex
+	mu        sync.Mutex
 	listeners map[string]DownloadListener
-	um *UidManager
+	um        *UidManager
 }
 
 type DownloadListener struct {
-	when time.Time
-	url string
+	when    time.Time
+	url     string
 	aliases []string
 	channel chan *CachedFile
 }
@@ -27,7 +27,7 @@ func NewDownloadListeners() *DownloadListeners {
 }
 
 func (downloadListeners *DownloadListeners) Add(url string, aliases []string, channel chan *CachedFile) {
-	downloadListener := DownloadListener{when: time.Now(), url: url, aliases: aliases, channel: channel }
+	downloadListener := DownloadListener{when: time.Now(), url: url, aliases: aliases, channel: channel}
 	downloadListeners.mu.Lock()
 	downloadListeners.listeners[downloadListeners.um.GenerateHex()] = downloadListener
 	downloadListeners.mu.Unlock()
@@ -50,7 +50,7 @@ func (downloadListeners *DownloadListeners) Notify(cachedFile *CachedFile) {
 
 func shouldNotify(cachedFile *CachedFile, downloadListener DownloadListener) bool {
 	if downloadListener.url == cachedFile.Url {
-		return true;
+		return true
 	}
 	// NKG: This can be improved.
 	for _, alias := range cachedFile.Aliases {

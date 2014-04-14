@@ -5,11 +5,11 @@ import (
 	"github.com/codegangsta/martini"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"net/http"
 )
 
 type FileCache interface {
@@ -20,7 +20,7 @@ type FileCache interface {
 
 type DiskFileCacheConfig struct {
 	downloader RemoteFileFetcher
-	basePath string
+	basePath   string
 }
 
 var DefaultDiskFileCacheConfig = DiskFileCacheConfig{
@@ -38,15 +38,15 @@ var DefaultDiskFileCacheConfig = DiskFileCacheConfig{
 }
 
 type DiskFileCache struct {
-	config       DiskFileCacheConfig
-	query        chan QueryCachedFiles
-	warm         chan WarmCachedFiles
-	warmAndQuery chan WarmAndQueryCachedFiles
-	downloads    chan *CachedFile
+	config            DiskFileCacheConfig
+	query             chan QueryCachedFiles
+	warm              chan WarmCachedFiles
+	warmAndQuery      chan WarmAndQueryCachedFiles
+	downloads         chan *CachedFile
 	downloadListeners *DownloadListeners
-	downloadPool *DownloadPool
+	downloadPool      *DownloadPool
 
-	cachedFiles map[string]*CachedFile
+	cachedFiles       map[string]*CachedFile
 	cachedFileAliases map[string]string
 }
 

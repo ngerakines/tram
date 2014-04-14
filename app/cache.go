@@ -25,9 +25,9 @@ type WarmAndQueryCachedFiles struct {
 
 type CachedFile struct {
 	ContentHash string
-	Url     string
-	Aliases []string
-	Path    string
+	Url         string
+	Aliases     []string
+	Path        string
 }
 
 func (cf *CachedFile) StoreAsset(body []byte) {

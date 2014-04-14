@@ -1,12 +1,11 @@
 package app
 
 import (
-	"math/rand"
-	"time"
 	"crypto/sha1"
 	"fmt"
+	"math/rand"
+	"time"
 )
-
 
 type UidManager struct {
 	randPool rand.Source

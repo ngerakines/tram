@@ -1,17 +1,17 @@
 package app
 
 import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"sync"
 	"time"
-	"fmt"
-	"net/http"
-	"io/ioutil"
 )
 
 type RemoteFileFetcher func(url string) ([]byte, error)
 
 type DedupingDownloader struct {
-	downloader RemoteFileFetcher
+	downloader   RemoteFileFetcher
 	downloadPool *DownloadPool
 }
 
@@ -29,7 +29,7 @@ func (err DownloadError) Error() string {
 }
 
 func (dd *DedupingDownloader) download(url string) ([]byte, error) {
-	if (dd.downloadPool.IsInTransit(url)) {
+	if dd.downloadPool.IsInTransit(url) {
 		fmt.Println("Cannot download", url, "because it is already in transit.")
 		return nil, DownloadError{"Url already being downloaded"}
 	}
