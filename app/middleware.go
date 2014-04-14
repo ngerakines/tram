@@ -5,11 +5,11 @@ import (
 	"github.com/codegangsta/martini"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"net/http"
 )
 
 type FileCache interface {
@@ -18,15 +18,13 @@ type FileCache interface {
 	Warm(url string, fileAliases []string)
 }
 
-type RemoteFileFetcher func(url string) ([]byte, error)
-
 type DiskFileCacheConfig struct {
 	downloader RemoteFileFetcher
 	basePath string
 }
 
 var DefaultDiskFileCacheConfig = DiskFileCacheConfig{
-	downloader: defaultRemoteFileFetcher,
+	downloader: DedupeWrapDownloader(defaultRemoteFileFetcher),
 	// NKG: I know.
 	basePath: func() string {
 		pwd, err := os.Getwd()
@@ -45,23 +43,11 @@ type DiskFileCache struct {
 	warm         chan WarmCachedFiles
 	warmAndQuery chan WarmAndQueryCachedFiles
 	downloads    chan *CachedFile
+	downloadListeners *DownloadListeners
+	downloadPool *DownloadPool
 
 	cachedFiles map[string]*CachedFile
 	cachedFileAliases map[string]string
-}
-
-func defaultRemoteFileFetcher(url string) ([]byte, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err.Error())
-		return nil, err
-	}
-	return body, nil
 }
 
 func NewFileCacheWithConfig(config DiskFileCacheConfig) martini.Handler {
@@ -83,6 +69,7 @@ func NewDiskFileCache(config DiskFileCacheConfig) *DiskFileCache {
 	diskFileCache.warm = make(chan WarmCachedFiles, 10)
 	diskFileCache.warmAndQuery = make(chan WarmAndQueryCachedFiles, 10)
 	diskFileCache.downloads = make(chan *CachedFile)
+	diskFileCache.downloadListeners = NewDownloadListeners()
 	diskFileCache.cachedFiles = make(map[string]*CachedFile)
 	diskFileCache.cachedFileAliases = make(map[string]string)
 
@@ -137,17 +124,14 @@ func (dfc *DiskFileCache) fileCache() {
 				if !ok {
 					return
 				}
-				interestedPeeps := make([]chan *CachedFile, 0, 0)
-				dfc.download(command.Url, command.Aliases, interestedPeeps)
+				dfc.download(command.Url, command.Aliases)
 			}
 		case command, ok := <-dfc.warmAndQuery:
 			{
 				if !ok {
 					return
 				}
-				interestedPeeps := make([]chan *CachedFile, 0, 0)
-				interestedPeeps = append(interestedPeeps, command.Response)
-				dfc.download(command.Url, command.Aliases, interestedPeeps)
+				dfc.downloadAndNotify(command.Url, command.Aliases, command.Response)
 			}
 		case command, ok := <-dfc.query:
 			{
@@ -215,14 +199,22 @@ func (dfc *DiskFileCache) findCachedFile(tokens []string) *CachedFile {
 	return nil
 }
 
-func (dfc *DiskFileCache) download(url string, urlAliases []string, channels []chan *CachedFile) {
+func (dfc *DiskFileCache) download(url string, urlAliases []string) {
 	existingCachedFile := dfc.findCachedFile(append(urlAliases, url))
 	if existingCachedFile != nil {
-		for _, channel := range channels {
-			channel <- existingCachedFile
-		}
+		return
 	}
-	go asyncDownload(dfc.config.downloader, dfc.config.basePath, url, urlAliases, append(channels, dfc.downloads))
+	go asyncDownload(dfc.config.downloader, dfc.config.basePath, url, urlAliases, dfc.downloads)
+}
+
+func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, channel chan *CachedFile) {
+	existingCachedFile := dfc.findCachedFile(append(urlAliases, url))
+	if existingCachedFile != nil {
+		channel <- existingCachedFile
+		return
+	}
+	dfc.downloadListeners.Add(url, urlAliases, channel)
+	go asyncDownload(dfc.config.downloader, dfc.config.basePath, url, urlAliases, dfc.downloads)
 }
 
 func (dfc *DiskFileCache) handleDownload(cachedFile *CachedFile) {
@@ -230,9 +222,10 @@ func (dfc *DiskFileCache) handleDownload(cachedFile *CachedFile) {
 	for _, alias := range cachedFile.Aliases {
 		dfc.cachedFileAliases[alias] = cachedFile.ContentHash
 	}
+	dfc.downloadListeners.Notify(cachedFile)
 }
 
-func asyncDownload(downloader RemoteFileFetcher, basePath, url string, urlAliases []string, channels []chan *CachedFile) {
+func asyncDownload(downloader RemoteFileFetcher, basePath, url string, urlAliases []string, callback chan *CachedFile) {
 	body, err := downloader(url)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -255,7 +248,5 @@ func asyncDownload(downloader RemoteFileFetcher, basePath, url string, urlAliase
 	cachedFile.StoreAsset(body)
 	cachedFile.StoreMetadata()
 
-	for _, channel := range channels {
-		channel <- cachedFile
-	}
+	callback <- cachedFile
 }
