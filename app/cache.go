@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strings"
+	"os"
 )
 
 type QueryCachedFiles struct {
@@ -28,6 +29,26 @@ type CachedFile struct {
 	Url         string
 	Aliases     []string
 	Path        string
+}
+
+func (cf *CachedFile) Size() int {
+	stat, err := os.Stat(cf.Path)
+	if err != nil {
+		fmt.Println(err.Error())
+		return 0
+	}
+	return int(stat.Size())
+}
+
+func (cf *CachedFile) Delete() {
+	err := os.Remove(cf.Path)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	err = os.Remove(cf.Path + ".metadata")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }
 
 func (cf *CachedFile) StoreAsset(body []byte) {

@@ -21,10 +21,12 @@ type FileCache interface {
 type DiskFileCacheConfig struct {
 	downloader RemoteFileFetcher
 	basePath   string
+	lruSize    uint64
 }
 
 var DefaultDiskFileCacheConfig = DiskFileCacheConfig{
 	downloader: DedupeWrapDownloader(defaultRemoteFileFetcher),
+	lruSize: 33554432, // 32 megabytes
 	// NKG: I know.
 	basePath: func() string {
 		pwd, err := os.Getwd()
@@ -43,8 +45,10 @@ type DiskFileCache struct {
 	warm              chan WarmCachedFiles
 	warmAndQuery      chan WarmAndQueryCachedFiles
 	downloads         chan *CachedFile
+	evictions         chan string
 	downloadListeners *DownloadListeners
 	downloadPool      *DownloadPool
+	lru *LRUCache
 
 	cachedFiles       map[string]*CachedFile
 	cachedFileAliases map[string]string
@@ -68,11 +72,14 @@ func NewDiskFileCache(config DiskFileCacheConfig) *DiskFileCache {
 	diskFileCache.query = make(chan QueryCachedFiles, 10)
 	diskFileCache.warm = make(chan WarmCachedFiles, 10)
 	diskFileCache.warmAndQuery = make(chan WarmAndQueryCachedFiles, 10)
-	diskFileCache.downloads = make(chan *CachedFile)
+	diskFileCache.downloads = make(chan *CachedFile, 25)
 	diskFileCache.downloadListeners = NewDownloadListeners()
+	diskFileCache.evictions = make(chan string, 25)
+	diskFileCache.lru = NewLRUCache(config.lruSize)
 	diskFileCache.cachedFiles = make(map[string]*CachedFile)
 	diskFileCache.cachedFileAliases = make(map[string]string)
 
+	diskFileCache.lru.AddListener(diskFileCache.evictions)
 	go diskFileCache.fileCache()
 
 	return diskFileCache
@@ -147,6 +154,13 @@ func (dfc *DiskFileCache) fileCache() {
 				}
 				dfc.handleDownload(cachedFile)
 			}
+		case evicted, ok := <-dfc.evictions:
+			{
+				if !ok {
+					return
+				}
+				dfc.handleEviction(evicted)
+			}
 		}
 	}
 }
@@ -218,11 +232,23 @@ func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, cha
 }
 
 func (dfc *DiskFileCache) handleDownload(cachedFile *CachedFile) {
+	dfc.lru.addNew(cachedFile.ContentHash, cachedFile)
 	dfc.cachedFiles[cachedFile.ContentHash] = cachedFile
 	for _, alias := range cachedFile.Aliases {
 		dfc.cachedFileAliases[alias] = cachedFile.ContentHash
 	}
 	dfc.downloadListeners.Notify(cachedFile)
+}
+
+func (dfc *DiskFileCache) handleEviction(evicted string) {
+	cachedFile, hasCachedFile := dfc.cachedFiles[evicted]
+	if hasCachedFile {
+		for _, alias := range cachedFile.Aliases {
+			delete(dfc.cachedFileAliases, alias)
+		}
+		delete(dfc.cachedFiles, evicted)
+		cachedFile.Delete()
+	}
 }
 
 func asyncDownload(downloader RemoteFileFetcher, basePath, url string, urlAliases []string, callback chan *CachedFile) {
