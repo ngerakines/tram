@@ -23,7 +23,7 @@ func handleHead(res http.ResponseWriter, req *http.Request, fileCache FileCache)
 	if hasQuery && len(query) > 0 {
 		cachedFile := fileCache.Query(query)
 		if cachedFile != nil {
-			if _, err := os.Stat(cachedFile.Path); err == nil {
+			if _, err := os.Stat(cachedFile.Location()); err == nil {
 				res.Header().Set("Content-Length", "0")
 				res.WriteHeader(200)
 				return
@@ -41,7 +41,7 @@ func handleGet(res http.ResponseWriter, req *http.Request, fileCache FileCache) 
 	if hasQuery && len(query) > 0 {
 		cachedFile := fileCache.Query(query)
 		if cachedFile != nil {
-			http.ServeFile(res, req, cachedFile.Path)
+			http.ServeFile(res, req, cachedFile.Location())
 			return
 		}
 	}
@@ -50,7 +50,7 @@ func handleGet(res http.ResponseWriter, req *http.Request, fileCache FileCache) 
 	if hasUrl && len(url) > 0 {
 		cachedFile := fileCache.WarmAndQuery(url[0], aliasOrEmpty(hasAlias, alias))
 		if cachedFile != nil {
-			http.ServeFile(res, req, cachedFile.Path)
+			http.ServeFile(res, req, cachedFile.Location())
 			return
 		}
 	}

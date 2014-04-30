@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/ngerakines/tram/storage"
 	"testing"
 	"time"
 )
@@ -17,10 +18,10 @@ func TestShouldNotify(t *testing.T) {
 	}
 }
 
-func test_createCachedFile(hash, url, path string, aliases []string) *CachedFile {
-	return &CachedFile{hash, url, aliases, path}
+func test_createCachedFile(hash, url, path string, aliases []string) storage.CachedFile {
+	return storage.NewLocalCachedFile(hash, path, []string{url}, aliases)
 }
 
 func test_createDownloadListener(url string, aliases []string) DownloadListener {
-	return DownloadListener{time.Now(), url, aliases, make(chan *CachedFile)}
+	return DownloadListener{time.Now(), url, aliases, make(chan storage.CachedFile)}
 }

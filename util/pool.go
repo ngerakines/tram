@@ -1,4 +1,4 @@
-package app
+package util
 
 import (
 	"fmt"
@@ -7,8 +7,6 @@ import (
 	"sync"
 	"time"
 )
-
-type RemoteFileFetcher func(url string) ([]byte, error)
 
 type DedupingDownloader struct {
 	wrappedDownloader RemoteFileFetcher
@@ -72,7 +70,7 @@ func DedupeWrapDownloader(downloader RemoteFileFetcher) RemoteFileFetcher {
 	return dedupingDownloader.downloader
 }
 
-func defaultRemoteFileFetcher(url string) ([]byte, error) {
+func DefaultRemoteFileFetcher(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err

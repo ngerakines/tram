@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/codegangsta/martini"
+	"github.com/ngerakines/tram/util"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -67,7 +68,7 @@ func buildConfig(cacheDir string) (DiskFileCacheConfig, *MockDownloader) {
 	mockDownloader.payloads["http://localhost:3001/6ce8a69121f4fdcb156772ff00c3828ae542f00b"] = []byte("/miniature-dubstep")
 	mockDownloader.payloads["http://localhost:3001/ffdefcd0d443d73f4058e33bec27c5cabb2ac1c1"] = []byte("/elasticservices")
 
-	return DiskFileCacheConfig{DedupeWrapDownloader(mockDownloader.download), cacheDirectory, 24}, mockDownloader
+	return DiskFileCacheConfig{util.DedupeWrapDownloader(mockDownloader.download), cacheDirectory, 24}, mockDownloader
 }
 
 func TestEmpty(t *testing.T) {

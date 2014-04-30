@@ -1,7 +1,6 @@
 package app
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"math/rand"
 	"time"
@@ -38,10 +37,4 @@ func NewUidManager() *UidManager {
 	return &UidManager{
 		rand.NewSource(int64(time.Now().Nanosecond())),
 	}
-}
-
-func hash(bytes []byte) string {
-	hasher := sha1.New()
-	hasher.Write(bytes)
-	return fmt.Sprintf("%x", hasher.Sum(nil))
 }

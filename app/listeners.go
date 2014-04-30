@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/ngerakines/tram/storage"
 	"sync"
 	"time"
 )
@@ -15,7 +16,7 @@ type DownloadListener struct {
 	when    time.Time
 	url     string
 	aliases []string
-	channel chan *CachedFile
+	channel chan storage.CachedFile
 }
 
 func NewDownloadListeners() *DownloadListeners {
@@ -26,14 +27,14 @@ func NewDownloadListeners() *DownloadListeners {
 	return downloadListeners
 }
 
-func (downloadListeners *DownloadListeners) Add(url string, aliases []string, channel chan *CachedFile) {
+func (downloadListeners *DownloadListeners) Add(url string, aliases []string, channel chan storage.CachedFile) {
 	downloadListener := DownloadListener{when: time.Now(), url: url, aliases: aliases, channel: channel}
 	downloadListeners.mu.Lock()
 	downloadListeners.listeners[downloadListeners.um.GenerateHex()] = downloadListener
 	downloadListeners.mu.Unlock()
 }
 
-func (downloadListeners *DownloadListeners) Notify(cachedFile *CachedFile) {
+func (downloadListeners *DownloadListeners) Notify(cachedFile storage.CachedFile) {
 	downloadListeners.mu.Lock()
 	toRemove := make([]string, 0, 0)
 	for key, downloadListener := range downloadListeners.listeners {
@@ -48,12 +49,14 @@ func (downloadListeners *DownloadListeners) Notify(cachedFile *CachedFile) {
 	downloadListeners.mu.Unlock()
 }
 
-func shouldNotify(cachedFile *CachedFile, downloadListener DownloadListener) bool {
-	if downloadListener.url == cachedFile.Url {
-		return true
+func shouldNotify(cachedFile storage.CachedFile, downloadListener DownloadListener) bool {
+	for _, url := range cachedFile.Urls() {
+		if downloadListener.url == url {
+			return true
+		}
 	}
 	// NKG: This can be improved.
-	for _, alias := range cachedFile.Aliases {
+	for _, alias := range cachedFile.Aliases() {
 		for _, alias2 := range downloadListener.aliases {
 			if alias == alias2 {
 				return true
