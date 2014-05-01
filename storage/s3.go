@@ -17,9 +17,10 @@ type S3CachedFile struct {
 	bucket      string
 	urls        []string
 	aliases     []string
+	size        int
 }
 
-func NewS3StorageManager(buckets []string, awsKey, awsSecret string, s3Client S3Client) StorageManager {
+func NewS3StorageManager(buckets []string, s3Client S3Client) StorageManager {
 	hashRing := ketama.NewRing(180)
 	for _, bucket := range buckets {
 		hashRing.Add(bucket, 1)
@@ -52,7 +53,7 @@ func (sm *S3StorageManager) Store(payload []byte, sourceUrl string, contentHash 
 		return
 	}
 
-	cachedFile := &S3CachedFile{contentHash, contentObject.Url(), bucket, []string{sourceUrl}, aliases}
+	cachedFile := &S3CachedFile{contentHash, contentObject.Url(), bucket, []string{sourceUrl}, aliases, len(payload)}
 
 	metaPayload, err := cachedFile.Serialize()
 	if err != nil {
@@ -68,20 +69,8 @@ func (sm *S3StorageManager) Store(payload []byte, sourceUrl string, contentHash 
 	callback <- cachedFile
 }
 
-func (sm *S3StorageManager) selectBucket() string {
-	return ""
-}
-
-func (sm *S3StorageManager) buildRemoteUrl(contentHash string) (string, string, error) {
-	return "", "", StorageError{"S3StorageManager.buildRemoteUrl(...) method not implemented yet."}
-}
-
-func (sm *S3StorageManager) storePayload(cachedFile *S3CachedFile, payload []byte) error {
-	return StorageError{"S3StorageManager.storePayload(...) method not implemented yet."}
-}
-
-func (sm *S3StorageManager) storeMetadata(cachedFile *S3CachedFile) error {
-	return StorageError{"S3StorageManager.storeMetadata(...) method not implemented yet."}
+func (sm *S3StorageManager) Delete(cachedFile CachedFile) error {
+	return nil
 }
 
 func (cf *S3CachedFile) LocationType() string {
@@ -93,11 +82,7 @@ func (cf *S3CachedFile) Location() string {
 }
 
 func (cf *S3CachedFile) Size() int {
-	return 0
-}
-
-func (cf *S3CachedFile) Delete() error {
-	return StorageError{"S3CachedFile.Delete() not implemented yet."}
+	return cf.size
 }
 
 func (cf *S3CachedFile) ContentHash() string {

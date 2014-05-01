@@ -102,6 +102,18 @@ func (sm *LocalStorageManager) persistMetaDaToDisk(cachedFile *LocalCachedFile) 
 	return err
 }
 
+func (sm *LocalStorageManager) Delete(cachedFile CachedFile) error {
+	err := os.Remove(cachedFile.Location())
+	if err != nil {
+		return err
+	}
+	err = os.Remove(cachedFile.Location() + ".metadata")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func NewLocalCachedFile(contentHash, path string, urls []string, aliases []string) *LocalCachedFile {
 	return &LocalCachedFile{contentHash, path, urls, aliases}
 }
@@ -120,18 +132,6 @@ func (cf *LocalCachedFile) Size() int {
 		return 0
 	}
 	return int(stat.Size())
-}
-
-func (cf *LocalCachedFile) Delete() error {
-	err := os.Remove(cf.path)
-	if err != nil {
-		return err
-	}
-	err = os.Remove(cf.path + ".metadata")
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (cf *LocalCachedFile) ContentHash() string {

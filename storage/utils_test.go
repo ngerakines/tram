@@ -54,6 +54,10 @@ func (sm *mockStorageManager) Load(callback chan CachedFile) {
 
 }
 
+func (sm *mockStorageManager) Delete(cachedFile CachedFile) error {
+	return nil
+}
+
 type StringError struct {
 	message string
 }

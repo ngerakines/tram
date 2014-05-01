@@ -17,13 +17,13 @@ type CachedFile interface {
 	Urls() []string
 	Aliases() []string
 	Size() int
-	Delete() error
 	Serialize() ([]byte, error)
 }
 
 type StorageManager interface {
 	Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile)
 	Load(callback chan CachedFile)
+	Delete(cachedFile CachedFile) error
 }
 
 type StorageError struct {
