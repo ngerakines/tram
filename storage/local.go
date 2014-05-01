@@ -55,7 +55,17 @@ func (sm *LocalStorageManager) Load(callback chan CachedFile) {
 }
 
 func (sm *LocalStorageManager) unpackLocalCachedFile(path string) (*LocalCachedFile, error) {
-	return nil, StorageError{"LocalStorageManager.unpackLocalCachedFile(path) not implemented yet."}
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var cachedFile LocalCachedFile
+	err = json.Unmarshal(content, &cachedFile)
+	if err != nil {
+		return nil, err
+	}
+	return &cachedFile, nil
 }
 
 func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
