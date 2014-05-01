@@ -208,5 +208,5 @@ func (dfc *DiskFileCache) handleEviction(evicted *Item) {
 	for _, alias := range evicted.Value.(storage.CachedFile).Aliases() {
 		delete(dfc.cachedFileAliases, alias)
 	}
-	evicted.Value.(storage.CachedFile).Delete()
+	dfc.storageManager.Delete(evicted.Value.(storage.CachedFile))
 }
