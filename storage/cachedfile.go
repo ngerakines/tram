@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"github.com/ngerakines/tram/util"
+	"log"
 )
 
 var (
@@ -61,7 +62,7 @@ func (err StorageError) Error() string {
 func Download(downloader util.RemoteFileFetcher, storageManager StorageManager, url string, aliases []string, callback chan CachedFile) {
 	body, err := downloader(url)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
 		return
 	}
 

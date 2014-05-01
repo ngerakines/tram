@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/ngerakines/tram/storage"
+	"github.com/ngerakines/tram/util"
 	"sync"
 	"time"
 )
@@ -9,7 +10,7 @@ import (
 type DownloadListeners struct {
 	mu        sync.Mutex
 	listeners map[string]DownloadListener
-	um        *UidManager
+	um        *util.UidManager
 }
 
 type DownloadListener struct {
@@ -23,7 +24,7 @@ func NewDownloadListeners() *DownloadListeners {
 	downloadListeners := new(DownloadListeners)
 	downloadListeners.listeners = make(map[string]DownloadListener)
 	downloadListeners.mu = sync.Mutex{}
-	downloadListeners.um = NewUidManager()
+	downloadListeners.um = util.NewUidManager()
 	return downloadListeners
 }
 

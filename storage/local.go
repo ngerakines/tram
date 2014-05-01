@@ -50,7 +50,7 @@ func (sm *LocalStorageManager) unpackLocalCachedFile(path string) (*LocalCachedF
 func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
 	path := filepath.Join(sm.basePath, contentHash)
 
-	cachedFile := &LocalCachedFile{contentHash, path, []string{sourceUrl}, aliases}
+	cachedFile := NewLocalCachedFile(contentHash, path, []string{sourceUrl}, aliases)
 	err1 := sm.persistCachedFileToDisk(cachedFile, payload)
 	if err1 != nil {
 		fmt.Println(err1.Error())
