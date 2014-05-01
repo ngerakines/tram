@@ -2,34 +2,74 @@ package storage
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/ngerakines/ketama"
+	"log"
 )
 
-func (sm *S3StorageManager) Load() {
+type S3StorageManager struct {
+	bucketRing ketama.HashRing
+	s3Client   S3Client
+}
+
+type S3CachedFile struct {
+	contentHash string
+	remoteUrl   string
+	bucket      string
+	urls        []string
+	aliases     []string
+}
+
+func NewS3StorageManager(buckets []string, awsKey, awsSecret string, s3Client S3Client) StorageManager {
+	hashRing := ketama.NewRing(180)
+	for _, bucket := range buckets {
+		hashRing.Add(bucket, 1)
+	}
+	hashRing.Bake()
+	return &S3StorageManager{hashRing, s3Client}
+}
+
+func (sm *S3StorageManager) Load(callback chan CachedFile) {
 }
 
 func (sm *S3StorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
+	bucket := sm.bucketRing.Hash(contentHash)
 
-	remoteUrl, bucket, remoteUrlErr := sm.buildRemoteUrl(contentHash)
-	if remoteUrlErr != nil {
-		fmt.Println(remoteUrlErr.Error())
+	contentObject, err := sm.s3Client.NewContentObject(contentHash, bucket)
+	if err != nil {
+		log.Println(err.Error())
 		return
 	}
 
-	cachedFile := &S3CachedFile{contentHash, remoteUrl, bucket, []string{sourceUrl}, aliases}
-
-	err1 := sm.storePayload(cachedFile, payload)
-	if err1 != nil {
-		fmt.Println(err1.Error())
+	metaObject, err := sm.s3Client.NewContentObject(contentHash, bucket)
+	if err != nil {
+		log.Println(err.Error())
 		return
 	}
-	err2 := sm.storeMetadata(cachedFile)
-	if err1 != nil {
-		fmt.Println(err2.Error())
+
+	err = sm.s3Client.Put(contentObject, payload)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	cachedFile := &S3CachedFile{contentHash, contentObject.Url(), bucket, []string{sourceUrl}, aliases}
+
+	metaPayload, err := cachedFile.Serialize()
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	err = sm.s3Client.Put(metaObject, metaPayload)
+	if err != nil {
+		log.Println(err.Error())
 		return
 	}
 
 	callback <- cachedFile
+}
+
+func (sm *S3StorageManager) selectBucket() string {
+	return ""
 }
 
 func (sm *S3StorageManager) buildRemoteUrl(contentHash string) (string, string, error) {

@@ -21,32 +21,9 @@ type CachedFile interface {
 	Serialize() ([]byte, error)
 }
 
-type LocalCachedFile struct {
-	contentHash string
-	path        string
-	urls        []string
-	aliases     []string
-}
-
-type S3CachedFile struct {
-	contentHash string
-	remoteUrl   string
-	bucket      string
-	urls        []string
-	aliases     []string
-}
-
 type StorageManager interface {
 	Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile)
 	Load(callback chan CachedFile)
-}
-
-type S3StorageManager struct {
-	buckets []string
-}
-
-type LocalStorageManager struct {
-	basePath string
 }
 
 type StorageError struct {

@@ -9,6 +9,17 @@ import (
 	"strings"
 )
 
+type LocalStorageManager struct {
+	basePath string
+}
+
+type LocalCachedFile struct {
+	contentHash string
+	path        string
+	urls        []string
+	aliases     []string
+}
+
 func NewLocalStorageManager(basePath string) StorageManager {
 	return &LocalStorageManager{basePath}
 }
