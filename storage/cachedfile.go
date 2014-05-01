@@ -1,8 +1,6 @@
 package storage
 
 import (
-	"crypto/sha1"
-	"fmt"
 	"github.com/ngerakines/tram/util"
 	"log"
 )
@@ -66,8 +64,8 @@ func Download(downloader util.RemoteFileFetcher, storageManager StorageManager, 
 		return
 	}
 
-	contentHash := hash(body)
-	urlHash := hash([]byte(url))
+	contentHash := util.Hash(body)
+	urlHash := util.Hash([]byte(url))
 
 	allAliases := make(map[string]bool)
 	allAliases[url] = true
@@ -78,10 +76,4 @@ func Download(downloader util.RemoteFileFetcher, storageManager StorageManager, 
 	}
 
 	storageManager.Store(body, url, contentHash, util.MapKeys(allAliases), callback)
-}
-
-func hash(bytes []byte) string {
-	hasher := sha1.New()
-	hasher.Write(bytes)
-	return fmt.Sprintf("%x", hasher.Sum(nil))
 }
