@@ -1,12 +1,21 @@
 package storage
 
 import (
+	"flag"
 	"github.com/ngerakines/tram/util"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
 )
+
+var (
+	integration = flag.Bool("test.integration", false, "run integration tests that may have external dependencies.")
+)
+
+func Integration() bool {
+	return *integration
+}
 
 type directoryManager struct {
 	path string

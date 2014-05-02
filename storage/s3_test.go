@@ -20,9 +20,9 @@ func (mc *mockS3Client) Put(s3object S3Object, content []byte) error {
 	return nil
 }
 
-func (mc *mockS3Client) Get(url string) (S3Object, error) {
+func (mc *mockS3Client) Get(bucket, file string) (S3Object, error) {
 	for _, putObject := range mc.putObjects {
-		if putObject.s3Object.Url() == url {
+		if putObject.s3Object.Bucket() == bucket && putObject.s3Object.FileName() == file {
 			return putObject.s3Object, nil
 		}
 	}
@@ -33,12 +33,12 @@ func (mc *mockS3Client) Delete(url string) error {
 	return nil
 }
 
-func (mc *mockS3Client) NewContentObject(name, bucket string) (S3Object, error) {
-	return NewAmazonS3Object("/content/"+name, bucket), nil
+func (mc *mockS3Client) NewContentObject(name, bucket, contentType string) (S3Object, error) {
+	return NewAmazonS3Object("/content/"+name, bucket, contentType), nil
 }
 
-func (mc *mockS3Client) NewMetadataObject(name, bucket string) (S3Object, error) {
-	return NewAmazonS3Object("/meta/"+name, bucket), nil
+func (mc *mockS3Client) NewMetadataObject(name, bucket, contentType string) (S3Object, error) {
+	return NewAmazonS3Object("/meta/"+name, bucket, contentType), nil
 }
 
 func newMockS3Client() *mockS3Client {
