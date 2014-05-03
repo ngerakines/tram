@@ -6,6 +6,7 @@ import (
 	"github.com/ngerakines/tram/util"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 )
@@ -13,7 +14,7 @@ import (
 type S3Client interface {
 	Put(s3object S3Object, content []byte) error
 	Get(bucket, file string) (S3Object, error)
-	Delete(url string) error
+	Delete(bucket, file string) error
 	NewContentObject(name, bucket, contentType string) (S3Object, error)
 	NewMetadataObject(name, bucket, contentType string) (S3Object, error)
 }
@@ -95,11 +96,17 @@ func (client *AmazonS3Client) createSignature(method, contentType, resource stri
 }
 
 func (client *AmazonS3Client) submitGetRequest(url string, headers map[string]string) ([]byte, string, error) {
+	log.Println("url", url)
 	response, err := client.executeRequest("GET", url, nil, headers)
 	if err != nil {
+		log.Println("response", response)
 		return nil, "", err
 	}
+	if response.StatusCode == 404 {
+		return nil, "", StorageError{"File not found."}
+	}
 	defer response.Body.Close()
+	log.Println("status", response.Status)
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -110,6 +117,19 @@ func (client *AmazonS3Client) submitGetRequest(url string, headers map[string]st
 
 func (client *AmazonS3Client) submitPutRequest(url string, payload []byte, headers map[string]string) ([]byte, error) {
 	response, err := client.executeRequest("PUT", url, bytes.NewReader(payload), headers)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func (client *AmazonS3Client) submitDeleteRequest(url string, headers map[string]string) ([]byte, error) {
+	response, err := client.executeRequest("DELETE", url, nil, headers)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +157,18 @@ func (client *AmazonS3Client) executeRequest(method, url string, body io.Reader,
 	return response, nil
 }
 
-func (client *AmazonS3Client) Delete(url string) error {
+func (client *AmazonS3Client) Delete(bucket, file string) error {
+	resource := fmt.Sprintf("/%s/%s", bucket, file)
+	date, signature := client.createSignature("DELETE", "", resource)
+	headers := make(map[string]string)
+	headers["Host"] = fmt.Sprintf("%s.s3.amazonaws.com", bucket)
+	headers["Date"] = date
+	headers["Authorization"] = fmt.Sprintf("AWS %s:%s", client.config.key, signature)
+	url := fmt.Sprintf("%s/%s/%s", client.config.host, bucket, file)
+	_, err := client.submitDeleteRequest(url, headers)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

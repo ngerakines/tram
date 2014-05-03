@@ -24,13 +24,33 @@ func TestS3Connect(t *testing.T) {
 	err := s3Client.Put(NewAmazonS3Object("hello_world.txt", bucket, "text/plain"), []byte("hello world"))
 	if err != nil {
 		t.Errorf("Error creating object: %s", err.Error())
+		return
 	}
 
 	obj, err := s3Client.Get(bucket, "hello_world.txt")
 	if err != nil {
-		t.Errorf("Error creating object: %s", err.Error())
+		t.Errorf("Error getting object: %s", err.Error())
+		return
 	}
 	if string(obj.Payload()) != "hello world" {
 		t.Errorf("Object content is incorrect: %s", string(obj.Payload()))
+		return
 	}
+
+	err = s3Client.Delete(bucket, "hello_world.txt")
+	if err != nil {
+		t.Errorf("Error deleting object: %s", err.Error())
+		return
+	}
+
+	obj, err = s3Client.Get(bucket, "hello_world.txt")
+	if err == nil {
+		t.Error("Object shouldn't exist")
+		return
+	}
+	if err.Error() != "File not found." {
+		t.Errorf("Unexpected error: %s", err.Error())
+		return
+	}
+
 }

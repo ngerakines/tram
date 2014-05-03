@@ -29,7 +29,7 @@ func (mc *mockS3Client) Get(bucket, file string) (S3Object, error) {
 	return nil, StorageError{"No file with that url exists"}
 }
 
-func (mc *mockS3Client) Delete(url string) error {
+func (mc *mockS3Client) Delete(bucket, file string) error {
 	return nil
 }
 
