@@ -26,3 +26,5 @@ _testmain.go
 *.iml
 *.ipr
 .idea
+
+coverage.*
