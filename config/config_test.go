@@ -1,41 +1,20 @@
 package config
 
 import (
-	"github.com/ngerakines/tram/util"
+	"github.com/ngerakines/testutils"
 	"io/ioutil"
 	"log"
-	"os"
 	"path/filepath"
 	"testing"
 )
 
-type directoryManager struct {
-	path string
-}
-
-func (dm *directoryManager) Close() {
-	log.Println("Removing temp path", dm.path)
-	os.RemoveAll(dm.path)
-}
-
-func newDirectoryManager() *directoryManager {
-	um := util.NewUidManager()
-	pwd, err := os.Getwd()
-	if err != nil {
-		panic(err.Error())
-	}
-	cacheDirectory := filepath.Join(pwd, um.GenerateHex())
-	os.MkdirAll(cacheDirectory, 00777)
-	return &directoryManager{cacheDirectory}
-}
-
 type tempFileManager struct {
-	dm    *directoryManager
+	path  string
 	files map[string]string
 }
 
 func (fm *tempFileManager) initFile(name, body string) {
-	path := filepath.Join(fm.dm.path, util.Hash([]byte(body)))
+	path := filepath.Join(fm.path, name)
 	err := ioutil.WriteFile(path, []byte(body), 00777)
 	if err != nil {
 		log.Fatal(err)
@@ -48,27 +27,47 @@ func (fm *tempFileManager) get(name string) (string, error) {
 	if hasPath {
 		return path, nil
 	}
-	return "", AppConfigError{"No config file exists with that label."}
+	return "", appConfigError{"No config file exists with that label."}
 }
 
-func (fm *tempFileManager) close() {
-	fm.dm.Close()
-}
-
-func initTempFileManager() *tempFileManager {
+func initTempFileManager(path string) *tempFileManager {
 	fm := new(tempFileManager)
-	fm.dm = newDirectoryManager()
+	fm.path = path
 	fm.files = make(map[string]string)
-	fm.initFile("storage-local", `{"storageBackend": "local", "local": {"basePath": "./", "maxCacheSize": 33554432}}`)
-	fm.initFile("storage-s3", `{"storageBackend": "s3", "s3": {"buckets": ["foo", "bar"]}}`)
+	fm.initFile("basic", `{
+		"listen": ":7041",
+		"lruSize": 120000,
+		"storage": {"engine": "s3", "s3Buckets": ["localhost"], "s3Key": "foo", "s3Secret": "bar", "s3Host": "localhost"}
+		}`)
 	return fm
 }
 
-func TestLocalFile(t *testing.T) {
-	fm := initTempFileManager()
-	defer fm.close()
+func TestDefaultConfig(t *testing.T) {
+	dm := testutils.NewDirectoryManager()
+	defer dm.Close()
 
-	path, err := fm.get("storage-local")
+	appConfig, err := NewDefaultAppConfig()
+	if err != nil {
+		t.Error(err.Error())
+		return
+	}
+
+	if appConfig.Listen() != ":7040" {
+		t.Error("Invalid default for appConfig.Listen()", appConfig.Listen())
+		return
+	}
+	if appConfig.Storage().Engine() != "local" {
+		t.Error("Invalid default for appConfig.Storage().Engine()", appConfig.Storage().Engine())
+		return
+	}
+}
+
+func TestBasicConfig(t *testing.T) {
+	dm := testutils.NewDirectoryManager()
+	defer dm.Close()
+	fm := initTempFileManager(dm.Path)
+
+	path, err := fm.get("basic")
 	if err != nil {
 		t.Error(err.Error())
 		return
@@ -78,56 +77,12 @@ func TestLocalFile(t *testing.T) {
 		t.Error(err.Error())
 		return
 	}
-	if appConfig.StorageBackend != "local" {
-		t.Errorf("config backend set to %s", appConfig.StorageBackend)
-		return
-	}
-	if appConfig.LocalConfig == nil {
-		t.Error("app config local config should be set.")
-		return
-	}
-	if appConfig.S3Config != nil {
-		t.Error("app config s3 config should not be set.")
-		return
-	}
-	if appConfig.LocalConfig.BasePath != "./" {
-		t.Errorf("local config base path invalid: %s", appConfig.LocalConfig.BasePath)
-		return
-	}
-	if appConfig.LocalConfig.LruSize != 33554432 {
-		t.Errorf("local configlru size invalid: %s", appConfig.LocalConfig.LruSize)
-		return
-	}
-}
 
-func TestS3File(t *testing.T) {
-	fm := initTempFileManager()
-	defer fm.close()
+	if appConfig.Listen() != ":7041" {
+		t.Error("appConfig.Listen()", appConfig.Listen())
+	}
 
-	path, err := fm.get("storage-s3")
-	if err != nil {
-		t.Error(err.Error())
-		return
-	}
-	appConfig, err := NewAppConfig(path)
-	if err != nil {
-		t.Error(err.Error())
-		return
-	}
-	if appConfig.StorageBackend != "s3" {
-		t.Errorf("config backend set to %s", appConfig.StorageBackend)
-		return
-	}
-	if appConfig.S3Config == nil {
-		t.Error("app config s3 config should be set.")
-		return
-	}
-	if appConfig.LocalConfig != nil {
-		t.Error("app config local config should not be set.")
-		return
-	}
-	if len(appConfig.S3Config.Buckets) == 0 {
-		t.Errorf("app config s3 config should have buckets set.")
-		return
+	if appConfig.Storage().Engine() != "s3" {
+		t.Error("appConfig.Storage().Engine()", appConfig.Storage().Engine())
 	}
 }

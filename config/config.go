@@ -1,96 +1,70 @@
 package config
 
 import (
-	"encoding/json"
-	"github.com/ngerakines/tram/util"
+	"github.com/ngerakines/preview/util"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 )
 
-type AppConfig struct {
-	StorageBackend string          `json:"storageBackend"`
-	Listen         string          `json:"listen"`
-	LruSize        uint64          `json:"maxCacheSize"`
-	LocalConfig    *LocalAppConfig `json:"local,omitempty"`
-	S3Config       *S3AppConfig    `json:"s3,omitempty"`
-}
-
-type LocalAppConfig struct {
-	BasePath string `json:"basePath"`
-}
-
-type S3AppConfig struct {
-	Buckets   []string `json:"buckets"`
-	AwsKey    string   `json:"awsKey"`
-	AwsSecret string   `json:"awsSecret"`
-}
-
-type AppConfigError struct {
+type appConfigError struct {
 	message string
 }
 
-var DefaultAppConfig = &AppConfig{
-	StorageBackend: "local",
-	Listen:         ":7040",
-	LruSize:        33554432,
-	LocalConfig: &LocalAppConfig{
-		BasePath: func() string {
-			pwd, err := os.Getwd()
-			if err != nil {
-				panic(err.Error())
-			}
-			cacheDirectory := filepath.Join(pwd, ".cache")
-			os.MkdirAll(cacheDirectory, 00777)
-			return cacheDirectory
-		}(),
-	},
+type AppConfig interface {
+	Listen() string
+	LruSize() uint64
+	Storage() StorageAppConfig
 }
 
-func LoadAppConfig(givenPath string) (*AppConfig, error) {
+type StorageAppConfig interface {
+	Engine() string
+	BasePath() string
+	S3Key() string
+	S3Secret() string
+	S3Buckets() []string
+	S3Host() string
+}
+
+func LoadAppConfig(givenPath string) (AppConfig, error) {
 	configPath := determineConfigPath(givenPath)
 	if configPath == "" {
-		return DefaultAppConfig, nil
+		return NewDefaultAppConfig()
 	}
-	return NewAppConfig(configPath)
-}
-
-func NewAppConfig(path string) (*AppConfig, error) {
-	content, err := ioutil.ReadFile(path)
+	content, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-
-	var appConfig AppConfig
-	err = json.Unmarshal(content, &appConfig)
-	if err != nil {
-		return nil, err
-	}
-	return &appConfig, nil
+	return NewUserAppConfig(content)
 }
 
-func (err AppConfigError) Error() string {
+func (err appConfigError) Error() string {
 	return err.message
 }
 
 func determineConfigPath(givenPath string) string {
 	paths := []string{
 		givenPath,
-		filepath.Join(util.CWD(), "tram.conf"),
-		filepath.Join(util.UserHomeDir(), "tram.conf"),
+		filepath.Join(util.Cwd(), "tram.conf"),
+		filepath.Join(userHomeDir(), ".tram.conf"),
 		"/etc/tram.conf",
 	}
 	for _, path := range paths {
-		if canLoadFile(path) {
+		if util.CanLoadFile(path) {
 			return path
 		}
 	}
 	return ""
 }
 
-func canLoadFile(path string) bool {
-	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
-		return false
+func userHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := filepath.Join(os.Getenv("HOMEDRIVE"), os.Getenv("HOMEPATH"))
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
 	}
-	return true
+	return os.Getenv("HOME")
 }

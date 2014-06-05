@@ -2,7 +2,6 @@ package storage
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/ngerakines/ketama"
 	"log"
 )
