@@ -31,7 +31,7 @@ type AmazonS3Client struct {
 	config *AmazonS3ClientConfig
 }
 
-type AmazoneS3Object struct {
+type AmazonS3Object struct {
 	name, bucket string
 	payload      []byte
 	contentType  string
@@ -50,11 +50,11 @@ func NewAmazonS3Client(config *AmazonS3ClientConfig) S3Client {
 }
 
 func NewAmazonS3Object(name, bucket, contentType string) S3Object {
-	return &AmazoneS3Object{name, bucket, nil, contentType}
+	return &AmazonS3Object{name, bucket, nil, contentType}
 }
 
 func NewAmazonS3ResponseObject(name, bucket, contentType string, content []byte) S3Object {
-	return &AmazoneS3Object{name, bucket, content, contentType}
+	return &AmazonS3Object{name, bucket, content, contentType}
 }
 
 func (client *AmazonS3Client) Put(s3object S3Object, content []byte) error {
@@ -180,22 +180,22 @@ func (client *AmazonS3Client) NewMetadataObject(name, bucket, contentType string
 	return NewAmazonS3Object("/meta/"+name, bucket, contentType), nil
 }
 
-func (s3obj *AmazoneS3Object) FileName() string {
+func (s3obj *AmazonS3Object) FileName() string {
 	return s3obj.name
 }
 
-func (s3obj *AmazoneS3Object) Bucket() string {
+func (s3obj *AmazonS3Object) Bucket() string {
 	return s3obj.bucket
 }
 
-func (s3obj *AmazoneS3Object) ContentType() string {
+func (s3obj *AmazonS3Object) ContentType() string {
 	return s3obj.contentType
 }
 
-func (s3obj *AmazoneS3Object) Payload() []byte {
+func (s3obj *AmazonS3Object) Payload() []byte {
 	return s3obj.payload
 }
 
-func (s3obj *AmazoneS3Object) Url() string {
+func (s3obj *AmazonS3Object) Url() string {
 	return "http://s3.amazonaws.com/" + s3obj.name
 }

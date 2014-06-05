@@ -10,25 +10,30 @@ import (
 
 type AppConfig struct {
 	StorageBackend string          `json:"storageBackend"`
+	Listen         string          `json:"listen"`
+	LruSize        uint64          `json:"maxCacheSize"`
 	LocalConfig    *LocalAppConfig `json:"local,omitempty"`
 	S3Config       *S3AppConfig    `json:"s3,omitempty"`
 }
 
 type LocalAppConfig struct {
 	BasePath string `json:"basePath"`
-	LruSize  uint64 `json:"maxCacheSize"`
 }
 
 type S3AppConfig struct {
-	Buckets []string `json:"buckets"`
+	Buckets   []string `json:"buckets"`
+	AwsKey    string   `json:"awsKey"`
+	AwsSecret string   `json:"awsSecret"`
 }
 
 type AppConfigError struct {
 	message string
 }
 
-var defaultAppConfig = &AppConfig{
+var DefaultAppConfig = &AppConfig{
 	StorageBackend: "local",
+	Listen:         ":7040",
+	LruSize:        33554432,
 	LocalConfig: &LocalAppConfig{
 		BasePath: func() string {
 			pwd, err := os.Getwd()
@@ -39,14 +44,13 @@ var defaultAppConfig = &AppConfig{
 			os.MkdirAll(cacheDirectory, 00777)
 			return cacheDirectory
 		}(),
-		LruSize: 33554432,
 	},
 }
 
 func LoadAppConfig(givenPath string) (*AppConfig, error) {
 	configPath := determineConfigPath(givenPath)
 	if configPath == "" {
-		return defaultAppConfig, nil
+		return DefaultAppConfig, nil
 	}
 	return NewAppConfig(configPath)
 }
