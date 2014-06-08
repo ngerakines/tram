@@ -41,15 +41,6 @@ func Download(downloader util.RemoteFileFetcher, storageManager StorageManager, 
 	}
 
 	contentHash := util.Hash(body)
-	urlHash := util.Hash([]byte(url))
 
-	allAliases := make(map[string]bool)
-	allAliases[url] = true
-	allAliases[urlHash] = true
-	allAliases[contentHash] = true
-	for _, alias := range aliases {
-		allAliases[alias] = true
-	}
-
-	storageManager.Store(body, url, contentHash, util.MapKeys(allAliases), callback)
+	storageManager.Store(body, url, contentHash, aliases, callback)
 }
