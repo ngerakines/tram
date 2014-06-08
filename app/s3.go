@@ -1,4 +1,4 @@
-package storage
+package app
 
 import (
 	"encoding/json"
@@ -29,19 +29,10 @@ func NewS3StorageManager(buckets []string, s3Client S3Client) StorageManager {
 	return &S3StorageManager{hashRing, s3Client}
 }
 
-func (sm *S3StorageManager) Load(callback chan CachedFile) {
-}
-
 func (sm *S3StorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
 	bucket := sm.bucketRing.Hash(contentHash)
 
 	contentObject, err := sm.s3Client.NewContentObject(contentHash, bucket, "application/octet-stream")
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	metaObject, err := sm.s3Client.NewContentObject(contentHash, bucket, "application/json")
 	if err != nil {
 		log.Println(err.Error())
 		return
@@ -54,17 +45,6 @@ func (sm *S3StorageManager) Store(payload []byte, sourceUrl string, contentHash 
 	}
 
 	cachedFile := &S3CachedFile{contentHash, contentObject.Url(), bucket, []string{sourceUrl}, aliases, len(payload)}
-
-	metaPayload, err := cachedFile.Serialize()
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-	err = sm.s3Client.Put(metaObject, metaPayload)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
 
 	callback <- cachedFile
 }

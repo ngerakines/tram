@@ -1,4 +1,4 @@
-package storage
+package app
 
 import (
 	"github.com/ngerakines/tram/util"

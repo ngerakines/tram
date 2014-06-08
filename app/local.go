@@ -1,4 +1,4 @@
-package storage
+package app
 
 import (
 	"encoding/json"
@@ -10,7 +10,6 @@ import (
 
 type LocalStorageManager struct {
 	basePath string
-	index    Index
 }
 
 type LocalCachedFile struct {
@@ -20,8 +19,8 @@ type LocalCachedFile struct {
 	aliases     []string
 }
 
-func NewLocalStorageManager(basePath string, index Index) StorageManager {
-	return &LocalStorageManager{basePath, index}
+func NewLocalStorageManager(basePath string) StorageManager {
+	return &LocalStorageManager{basePath}
 }
 
 func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
@@ -29,12 +28,6 @@ func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHa
 
 	cachedFile := NewLocalCachedFile(contentHash, path, []string{sourceUrl}, aliases)
 	err := sm.persistCachedFileToDisk(cachedFile, payload)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	err = sm.index.Update(contentHash, aliases, []string{sourceUrl}, len(payload))
 	if err != nil {
 		log.Println(err)
 		return
@@ -54,7 +47,6 @@ func (sm *LocalStorageManager) Delete(cachedFile CachedFile) error {
 	if err != nil {
 		return err
 	}
-	err = sm.index.Clear(cachedFile.ContentHash())
 	return err
 }
 

@@ -2,7 +2,6 @@ package app
 
 import (
 	"github.com/ngerakines/tram/config"
-	"github.com/ngerakines/tram/storage"
 	"github.com/ngerakines/tram/util"
 	"time"
 )
@@ -10,18 +9,18 @@ import (
 type warmAndQueryCachedFiles struct {
 	Url      string
 	Aliases  []string
-	Response chan storage.CachedFile
+	Response chan CachedFile
 }
 
 type FileCache interface {
-	WarmAndQuery(url string, aliases []string) storage.CachedFile
+	WarmAndQuery(url string, aliases []string) CachedFile
 }
 
 type DiskFileCache struct {
 	appConfig config.AppConfig
 
 	warmAndQuery chan warmAndQueryCachedFiles
-	downloads    chan storage.CachedFile
+	downloads    chan CachedFile
 	evictions    chan *Item
 
 	downloader        util.RemoteFileFetcher
@@ -30,11 +29,11 @@ type DiskFileCache struct {
 
 	lru *LRUCache
 
-	index          storage.Index
-	storageManager storage.StorageManager
+	index          Index
+	storageManager StorageManager
 }
 
-func NewDiskFileCache(appConfig config.AppConfig, index storage.Index, storageManager storage.StorageManager, downloader util.RemoteFileFetcher) *DiskFileCache {
+func NewDiskFileCache(appConfig config.AppConfig, index Index, storageManager StorageManager, downloader util.RemoteFileFetcher) *DiskFileCache {
 	diskFileCache := new(DiskFileCache)
 	diskFileCache.appConfig = appConfig
 	diskFileCache.index = index
@@ -42,7 +41,7 @@ func NewDiskFileCache(appConfig config.AppConfig, index storage.Index, storageMa
 	diskFileCache.downloader = downloader
 
 	diskFileCache.warmAndQuery = make(chan warmAndQueryCachedFiles, 1024)
-	diskFileCache.downloads = make(chan storage.CachedFile, 25)
+	diskFileCache.downloads = make(chan CachedFile, 25)
 	diskFileCache.downloadListeners = NewDownloadListeners()
 	diskFileCache.evictions = make(chan *Item, 25)
 	diskFileCache.lru = NewLRUCache(appConfig.LruSize())
@@ -57,8 +56,8 @@ func (dfc *DiskFileCache) Close() {
 	close(dfc.warmAndQuery)
 }
 
-func (dfc *DiskFileCache) WarmAndQuery(url string, aliases []string) storage.CachedFile {
-	command := warmAndQueryCachedFiles{url, aliases, make(chan storage.CachedFile)}
+func (dfc *DiskFileCache) WarmAndQuery(url string, aliases []string) CachedFile {
+	command := warmAndQueryCachedFiles{url, aliases, make(chan CachedFile)}
 	defer close(command.Response)
 	dfc.warmAndQuery <- command
 
@@ -98,19 +97,19 @@ func (dfc *DiskFileCache) fileCache() {
 	}
 }
 
-func (dfc *DiskFileCache) findCachedFile(terms []string) storage.CachedFile {
+func (dfc *DiskFileCache) findCachedFile(terms []string) CachedFile {
 	contentHash, err := dfc.index.Find(terms)
 	if err == nil {
 		cachedFile, hasCachedFile := dfc.lru.Get(contentHash)
 		if hasCachedFile {
-			return cachedFile.(storage.CachedFile)
+			return cachedFile.(CachedFile)
 		}
 	}
 	// NKG: Returning nil like this kind of bugs me.
 	return nil
 }
 
-func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, channel chan storage.CachedFile) {
+func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, channel chan CachedFile) {
 	existingCachedFile := dfc.findCachedFile(append(urlAliases, url))
 	if existingCachedFile != nil {
 		dfc.index.Merge(existingCachedFile.ContentHash(), urlAliases, []string{url}, existingCachedFile.Size())
@@ -118,15 +117,17 @@ func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, cha
 		return
 	}
 	dfc.downloadListeners.Add(url, urlAliases, channel)
-	go storage.Download(dfc.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
+	go Download(dfc.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
 }
 
-func (dfc *DiskFileCache) handleDownload(cachedFile storage.CachedFile) {
+func (dfc *DiskFileCache) handleDownload(cachedFile CachedFile) {
 	dfc.lru.Set(cachedFile.ContentHash(), cachedFile)
 	dfc.index.Update(cachedFile.ContentHash(), cachedFile.Aliases(), cachedFile.Urls(), cachedFile.Size())
 	dfc.downloadListeners.Notify(cachedFile)
 }
 
 func (dfc *DiskFileCache) handleEviction(evicted *Item) {
-	dfc.storageManager.Delete(evicted.Value.(storage.CachedFile))
+	cachedFile := evicted.Value.(CachedFile)
+	dfc.storageManager.Delete(cachedFile)
+	dfc.index.Clear(cachedFile.ContentHash())
 }

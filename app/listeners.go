@@ -1,7 +1,6 @@
 package app
 
 import (
-	"github.com/ngerakines/tram/storage"
 	"github.com/ngerakines/tram/util"
 	"sync"
 	"time"
@@ -17,7 +16,7 @@ type DownloadListener struct {
 	when    time.Time
 	url     string
 	aliases []string
-	channel chan storage.CachedFile
+	channel chan CachedFile
 }
 
 func NewDownloadListeners() *DownloadListeners {
@@ -28,14 +27,14 @@ func NewDownloadListeners() *DownloadListeners {
 	return downloadListeners
 }
 
-func (downloadListeners *DownloadListeners) Add(url string, aliases []string, channel chan storage.CachedFile) {
+func (downloadListeners *DownloadListeners) Add(url string, aliases []string, channel chan CachedFile) {
 	downloadListener := DownloadListener{when: time.Now(), url: url, aliases: aliases, channel: channel}
 	downloadListeners.mu.Lock()
 	downloadListeners.listeners[downloadListeners.um.GenerateHex()] = downloadListener
 	downloadListeners.mu.Unlock()
 }
 
-func (downloadListeners *DownloadListeners) Notify(cachedFile storage.CachedFile) {
+func (downloadListeners *DownloadListeners) Notify(cachedFile CachedFile) {
 	downloadListeners.mu.Lock()
 	toRemove := make([]string, 0, 0)
 	for key, downloadListener := range downloadListeners.listeners {
@@ -50,7 +49,7 @@ func (downloadListeners *DownloadListeners) Notify(cachedFile storage.CachedFile
 	downloadListeners.mu.Unlock()
 }
 
-func shouldNotify(cachedFile storage.CachedFile, downloadListener DownloadListener) bool {
+func shouldNotify(cachedFile CachedFile, downloadListener DownloadListener) bool {
 	for _, url := range cachedFile.Urls() {
 		if downloadListener.url == url {
 			return true

@@ -5,7 +5,6 @@ import (
 	"github.com/codegangsta/negroni"
 	"github.com/etix/stoppableListener"
 	"github.com/ngerakines/tram/config"
-	"github.com/ngerakines/tram/storage"
 	"github.com/ngerakines/tram/util"
 	"github.com/rcrowley/go-metrics"
 	"log"
@@ -18,6 +17,8 @@ import (
 type AppContext struct {
 	registry       metrics.Registry
 	appConfig      config.AppConfig
+	index          Index
+	storageManager StorageManager
 	fileCache      FileCache
 	apiBlueprint   Blueprint
 	adminBlueprint Blueprint
@@ -87,9 +88,9 @@ func (app *AppContext) Stop() {
 }
 
 func (app *AppContext) initCache() error {
-	index := storage.NewLocalIndex(app.appConfig.Index().LocalBasePath())
-	storageManager := storage.NewLocalStorageManager(app.appConfig.Storage().BasePath(), index)
-	app.fileCache = NewDiskFileCache(app.appConfig, index, storageManager, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
+	app.index = NewLocalIndex(app.appConfig.Index().LocalBasePath())
+	app.storageManager = NewLocalStorageManager(app.appConfig.Storage().BasePath())
+	app.fileCache = NewDiskFileCache(app.appConfig, app.index, app.storageManager, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
 	return nil
 }
 
