@@ -22,7 +22,6 @@ type CachedFile interface {
 
 type StorageManager interface {
 	Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile)
-	Load(callback chan CachedFile)
 	Delete(cachedFile CachedFile) error
 }
 

@@ -2,15 +2,15 @@ package storage
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 type LocalStorageManager struct {
 	basePath string
+	index    Index
 }
 
 type LocalCachedFile struct {
@@ -20,66 +20,23 @@ type LocalCachedFile struct {
 	aliases     []string
 }
 
-func NewLocalStorageManager(basePath string) StorageManager {
-	return &LocalStorageManager{basePath}
-}
-
-func (sm *LocalStorageManager) Load(callback chan CachedFile) {
-	walkFn := func(path string, _ os.FileInfo, err error) error {
-		stat, err := os.Stat(path)
-		if err != nil {
-			return err
-		}
-
-		if stat.IsDir() && path != sm.basePath {
-			return filepath.SkipDir
-		}
-
-		if err != nil {
-			return err
-		}
-		if strings.HasSuffix(path, ".metadata") {
-			cachedFile, err := sm.unpackLocalCachedFile(path)
-			if err != nil {
-				callback <- cachedFile
-			} else {
-				fmt.Println(err.Error())
-			}
-		}
-		return nil
-	}
-	err := filepath.Walk(sm.basePath, walkFn)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-}
-
-func (sm *LocalStorageManager) unpackLocalCachedFile(path string) (*LocalCachedFile, error) {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var cachedFile LocalCachedFile
-	err = json.Unmarshal(content, &cachedFile)
-	if err != nil {
-		return nil, err
-	}
-	return &cachedFile, nil
+func NewLocalStorageManager(basePath string, index Index) StorageManager {
+	return &LocalStorageManager{basePath, index}
 }
 
 func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
 	path := filepath.Join(sm.basePath, contentHash)
 
 	cachedFile := NewLocalCachedFile(contentHash, path, []string{sourceUrl}, aliases)
-	err1 := sm.persistCachedFileToDisk(cachedFile, payload)
-	if err1 != nil {
-		fmt.Println(err1.Error())
+	err := sm.persistCachedFileToDisk(cachedFile, payload)
+	if err != nil {
+		log.Println(err)
 		return
 	}
-	err2 := sm.persistMetaDaToDisk(cachedFile)
-	if err1 != nil {
-		fmt.Println(err2.Error())
+
+	err = sm.index.Update(contentHash, aliases, []string{sourceUrl}, len(payload))
+	if err != nil {
+		log.Println(err)
 		return
 	}
 
@@ -92,26 +49,13 @@ func (sm *LocalStorageManager) persistCachedFileToDisk(cachedFile *LocalCachedFi
 	return err
 }
 
-func (sm *LocalStorageManager) persistMetaDaToDisk(cachedFile *LocalCachedFile) error {
-	location := cachedFile.Location()
-	data, err := cachedFile.Serialize()
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(location+".metadata", data, 00777)
-	return err
-}
-
 func (sm *LocalStorageManager) Delete(cachedFile CachedFile) error {
 	err := os.Remove(cachedFile.Location())
 	if err != nil {
 		return err
 	}
-	err = os.Remove(cachedFile.Location() + ".metadata")
-	if err != nil {
-		return err
-	}
-	return nil
+	err = sm.index.Clear(cachedFile.ContentHash())
+	return err
 }
 
 func NewLocalCachedFile(contentHash, path string, urls []string, aliases []string) *LocalCachedFile {

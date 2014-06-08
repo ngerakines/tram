@@ -11,7 +11,14 @@ type userAppConfig struct {
 	listen           string
 	lruSize          uint64
 	storageAppConfig StorageAppConfig
+	indexAppConfig   IndexAppConfig
 }
+
+type userIndexAppConfig struct {
+	engine        string
+	localBasePath string
+}
+
 type userStorageAppConfig struct {
 	engine    string
 	basePath  string
@@ -43,6 +50,11 @@ func NewUserAppConfig(content []byte) (AppConfig, error) {
 		return nil, err
 	}
 
+	appConfig.indexAppConfig, err = newUserIndexAppConfig(m)
+	if err != nil {
+		return nil, err
+	}
+
 	appConfig.storageAppConfig, err = newUserStorageAppConfig(m)
 	if err != nil {
 		return nil, err
@@ -67,6 +79,10 @@ func (c *userAppConfig) Storage() StorageAppConfig {
 	return c.storageAppConfig
 }
 
+func (c *userAppConfig) Index() IndexAppConfig {
+	return c.indexAppConfig
+}
+
 func (c *userStorageAppConfig) Engine() string {
 	return c.engine
 }
@@ -89,6 +105,14 @@ func (c *userStorageAppConfig) S3Buckets() []string {
 
 func (c *userStorageAppConfig) S3Host() string {
 	return c.s3Host
+}
+
+func (c *userIndexAppConfig) Engine() string {
+	return c.engine
+}
+
+func (c *userIndexAppConfig) LocalBasePath() string {
+	return c.localBasePath
 }
 
 func newUserStorageAppConfig(m map[string]interface{}) (StorageAppConfig, error) {
@@ -125,6 +149,29 @@ func newUserStorageAppConfig(m map[string]interface{}) (StorageAppConfig, error)
 			return nil, err
 		}
 		config.s3Buckets, err = parseStringArray("storage", "s3Buckets", data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return config, nil
+}
+
+func newUserIndexAppConfig(m map[string]interface{}) (IndexAppConfig, error) {
+	data, err := parseConfigGroup("index", m)
+	if err != nil {
+		return nil, err
+	}
+
+	config := new(userIndexAppConfig)
+
+	config.engine, err = parseString("index", "engine", data)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.engine == "local" {
+		config.localBasePath, err = parseString("index", "localBasePath", data)
 		if err != nil {
 			return nil, err
 		}

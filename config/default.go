@@ -11,8 +11,8 @@ func NewDefaultAppConfig() (AppConfig, error) {
 }
 
 func NewDefaultAppConfigWithBaseDirectory(root string) (AppConfig, error) {
-	return buildDefaultConfig(func() string {
-		cacheDirectory := filepath.Join(root, ".cache")
+	return buildDefaultConfig(func(section string) string {
+		cacheDirectory := filepath.Join(root, ".cache", section)
 		os.MkdirAll(cacheDirectory, 00777)
 		return cacheDirectory
 	})
@@ -22,18 +22,22 @@ func buildDefaultConfig(basePathFunc basePath) (AppConfig, error) {
 	config := `{
    "listen": ":7040",
    "lruSize": 120000,
+   "index": {
+     "engine": "local",
+     "localBasePath": "` + basePathFunc("index") + `"
+   },
    "storage": {
       "engine": "local",
-      "basePath": "` + basePathFunc() + `"
+      "basePath": "` + basePathFunc("storage") + `"
    }
 }`
 	return NewUserAppConfig([]byte(config))
 }
 
-type basePath func() string
+type basePath func(string) string
 
-func defaultBasePath() string {
-	cacheDirectory := filepath.Join(util.Cwd(), ".cache")
+func defaultBasePath(section string) string {
+	cacheDirectory := filepath.Join(util.Cwd(), ".cache", section)
 	os.MkdirAll(cacheDirectory, 00777)
 	return cacheDirectory
 }

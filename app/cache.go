@@ -1,10 +1,9 @@
 package app
 
 import (
+	"github.com/ngerakines/tram/config"
 	"github.com/ngerakines/tram/storage"
 	"github.com/ngerakines/tram/util"
-	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -30,29 +29,9 @@ type FileCache interface {
 	Warm(url string, fileAliases []string)
 }
 
-type DiskFileCacheConfig struct {
-	downloader util.RemoteFileFetcher
-	basePath   string
-	lruSize    uint64
-}
-
-var DefaultDiskFileCacheConfig = DiskFileCacheConfig{
-	downloader: util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher),
-	lruSize:    33554432, // 32 megabytes
-	// NKG: I know.
-	basePath: func() string {
-		pwd, err := os.Getwd()
-		if err != nil {
-			panic(err.Error())
-		}
-		cacheDirectory := filepath.Join(pwd, ".cache")
-		os.MkdirAll(cacheDirectory, 00777)
-		return cacheDirectory
-	}(),
-}
-
 type DiskFileCache struct {
-	config            DiskFileCacheConfig
+	appConfig         config.AppConfig
+	downloader        util.RemoteFileFetcher
 	query             chan QueryCachedFiles
 	warm              chan WarmCachedFiles
 	warmAndQuery      chan WarmAndQueryCachedFiles
@@ -61,23 +40,27 @@ type DiskFileCache struct {
 	downloadListeners *DownloadListeners
 	downloadPool      *util.DownloadPool
 	lru               *LRUCache
+	index             storage.Index
 	storageManager    storage.StorageManager
 
 	cachedFileAliases map[string]string
 }
 
-func NewDiskFileCache(config DiskFileCacheConfig) *DiskFileCache {
+func NewDiskFileCache(appConfig config.AppConfig, downloader util.RemoteFileFetcher) *DiskFileCache {
 	diskFileCache := new(DiskFileCache)
-	diskFileCache.config = config
+	diskFileCache.appConfig = appConfig
+	diskFileCache.downloader = downloader
 	diskFileCache.query = make(chan QueryCachedFiles, 10)
 	diskFileCache.warm = make(chan WarmCachedFiles, 10)
 	diskFileCache.warmAndQuery = make(chan WarmAndQueryCachedFiles, 10)
 	diskFileCache.downloads = make(chan storage.CachedFile, 25)
 	diskFileCache.downloadListeners = NewDownloadListeners()
 	diskFileCache.evictions = make(chan *Item, 25)
-	diskFileCache.lru = NewLRUCache(config.lruSize)
+	diskFileCache.lru = NewLRUCache(appConfig.LruSize())
 	diskFileCache.cachedFileAliases = make(map[string]string)
-	diskFileCache.storageManager = storage.NewLocalStorageManager(config.basePath)
+
+	diskFileCache.index = storage.NewLocalIndex(appConfig.Index().LocalBasePath())
+	diskFileCache.storageManager = storage.NewLocalStorageManager(appConfig.Storage().BasePath(), diskFileCache.index)
 
 	diskFileCache.lru.AddListener(diskFileCache.evictions)
 	go diskFileCache.fileCache()
@@ -123,7 +106,7 @@ func (dfc *DiskFileCache) Warm(url string, fileAliases []string) {
 }
 
 func (dfc *DiskFileCache) fileCache() {
-	dfc.storageManager.Load(dfc.downloads)
+	// dfc.storageManager.Load(dfc.downloads)
 	for {
 		select {
 		case command, ok := <-dfc.warm:
@@ -183,7 +166,7 @@ func (dfc *DiskFileCache) download(url string, urlAliases []string) {
 	if existingCachedFile != nil {
 		return
 	}
-	go storage.Download(dfc.config.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
+	go storage.Download(dfc.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
 }
 
 func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, channel chan storage.CachedFile) {
@@ -193,7 +176,7 @@ func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, cha
 		return
 	}
 	dfc.downloadListeners.Add(url, urlAliases, channel)
-	go storage.Download(dfc.config.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
+	go storage.Download(dfc.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
 }
 
 func (dfc *DiskFileCache) handleDownload(cachedFile storage.CachedFile) {

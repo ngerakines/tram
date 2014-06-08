@@ -16,6 +16,13 @@ type AppConfig interface {
 	Listen() string
 	LruSize() uint64
 	Storage() StorageAppConfig
+	Index() IndexAppConfig
+	Source() string
+}
+
+type IndexAppConfig interface {
+	Engine() string
+	LocalBasePath() string
 }
 
 type StorageAppConfig interface {
