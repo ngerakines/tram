@@ -3,7 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"errors"
-	_ "github.com/gwenn/gosqlite"
+	// _ "github.com/gwenn/gosqlite"
 	"io/ioutil"
 	"log"
 	"os"

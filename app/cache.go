@@ -34,18 +34,18 @@ type DiskFileCache struct {
 	storageManager storage.StorageManager
 }
 
-func NewDiskFileCache(appConfig config.AppConfig, downloader util.RemoteFileFetcher) *DiskFileCache {
+func NewDiskFileCache(appConfig config.AppConfig, index storage.Index, storageManager storage.StorageManager, downloader util.RemoteFileFetcher) *DiskFileCache {
 	diskFileCache := new(DiskFileCache)
 	diskFileCache.appConfig = appConfig
+	diskFileCache.index = index
+	diskFileCache.storageManager = storageManager
 	diskFileCache.downloader = downloader
+
 	diskFileCache.warmAndQuery = make(chan warmAndQueryCachedFiles, 1024)
 	diskFileCache.downloads = make(chan storage.CachedFile, 25)
 	diskFileCache.downloadListeners = NewDownloadListeners()
 	diskFileCache.evictions = make(chan *Item, 25)
 	diskFileCache.lru = NewLRUCache(appConfig.LruSize())
-
-	diskFileCache.index = storage.NewLocalIndex(appConfig.Index().LocalBasePath())
-	diskFileCache.storageManager = storage.NewLocalStorageManager(appConfig.Storage().BasePath(), diskFileCache.index)
 
 	diskFileCache.lru.AddListener(diskFileCache.evictions)
 	go diskFileCache.fileCache()

@@ -5,6 +5,7 @@ import (
 	"github.com/codegangsta/negroni"
 	"github.com/etix/stoppableListener"
 	"github.com/ngerakines/tram/config"
+	"github.com/ngerakines/tram/storage"
 	"github.com/ngerakines/tram/util"
 	"github.com/rcrowley/go-metrics"
 	"log"
@@ -86,7 +87,9 @@ func (app *AppContext) Stop() {
 }
 
 func (app *AppContext) initCache() error {
-	app.fileCache = NewDiskFileCache(app.appConfig, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
+	index := storage.NewLocalIndex(app.appConfig.Index().LocalBasePath())
+	storageManager := storage.NewLocalStorageManager(app.appConfig.Storage().BasePath(), index)
+	app.fileCache = NewDiskFileCache(app.appConfig, index, storageManager, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
 	return nil
 }
 
