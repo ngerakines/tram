@@ -7,19 +7,17 @@ import (
 	"net/http"
 )
 
-type Blueprint interface {
-	AddRoutes(p *pat.PatternServeMux)
-}
-
 type apiBlueprint struct {
-	base      string
-	fileCache FileCache
+	base           string
+	fileCache      FileCache
+	storageManager StorageManager
 }
 
-func newApiBlueprint(fileCache FileCache) Blueprint {
+func newApiBlueprint(fileCache FileCache, storageManager StorageManager) Blueprint {
 	blueprint := new(apiBlueprint)
 	blueprint.base = "/"
 	blueprint.fileCache = fileCache
+	blueprint.storageManager = storageManager
 	return blueprint
 }
 
@@ -34,7 +32,7 @@ func (blueprint *apiBlueprint) handleGet(res http.ResponseWriter, req *http.Requ
 	if err == nil {
 		cachedFile := blueprint.fileCache.WarmAndQuery(url, aliases)
 		if cachedFile != nil {
-			http.ServeFile(res, req, cachedFile.Location())
+			blueprint.storageManager.Serve(cachedFile, res, req)
 			return
 		}
 	}

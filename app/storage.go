@@ -3,34 +3,29 @@ package app
 import (
 	"github.com/ngerakines/tram/util"
 	"log"
-)
-
-var (
-	CachedFile_Local  = "LocalCachedFile"
-	CachedFile_Remote = "RemoteCachedFile"
+	"net/http"
 )
 
 type CachedFile interface {
 	ContentHash() string
-	LocationType() string
-	Location() string
 	Urls() []string
 	Aliases() []string
 	Size() int
-	Serialize() ([]byte, error)
+	Attributes() map[string]string
 }
 
 type StorageManager interface {
-	Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile)
+	Store(contentHash string, payload []byte, urls, aliases []string, callback chan CachedFile)
 	Delete(cachedFile CachedFile) error
+	Serve(cachedFile CachedFile, res http.ResponseWriter, req *http.Request) error
 }
 
-type StorageError struct {
-	message string
-}
-
-func (err StorageError) Error() string {
-	return err.message
+type simpleCachedFile struct {
+	InternalContentHash string            `json:"ContentHash"`
+	InternalUrls        []string          `json:"Urls"`
+	InternalAliases     []string          `json:"Aliases"`
+	InternalSize        int               `json:"Size"`
+	InternalAttributes  map[string]string `json:"Attributes"`
 }
 
 func Download(downloader util.RemoteFileFetcher, storageManager StorageManager, url string, aliases []string, callback chan CachedFile) {
@@ -42,5 +37,25 @@ func Download(downloader util.RemoteFileFetcher, storageManager StorageManager, 
 
 	contentHash := util.Hash(body)
 
-	storageManager.Store(body, url, contentHash, aliases, callback)
+	storageManager.Store(contentHash, body, []string{url}, aliases, callback)
+}
+
+func (cachedFile *simpleCachedFile) ContentHash() string {
+	return cachedFile.InternalContentHash
+}
+
+func (cachedFile *simpleCachedFile) Urls() []string {
+	return cachedFile.InternalUrls
+}
+
+func (cachedFile *simpleCachedFile) Aliases() []string {
+	return cachedFile.InternalAliases
+}
+
+func (cachedFile *simpleCachedFile) Size() int {
+	return cachedFile.InternalSize
+}
+
+func (cachedFile *simpleCachedFile) Attributes() map[string]string {
+	return cachedFile.InternalAttributes
 }

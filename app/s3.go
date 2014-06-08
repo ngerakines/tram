@@ -1,9 +1,10 @@
 package app
 
 import (
-	"encoding/json"
+	"errors"
 	"github.com/ngerakines/ketama"
 	"log"
+	"net/http"
 )
 
 type S3StorageManager struct {
@@ -29,58 +30,72 @@ func NewS3StorageManager(buckets []string, s3Client S3Client) StorageManager {
 	return &S3StorageManager{hashRing, s3Client}
 }
 
-func (sm *S3StorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
-	bucket := sm.bucketRing.Hash(contentHash)
+func (storageManager *S3StorageManager) Store(contentHash string, payload []byte, urls, aliases []string, callback chan CachedFile) {
+	bucket := storageManager.bucketRing.Hash(contentHash)
 
-	contentObject, err := sm.s3Client.NewContentObject(contentHash, bucket, "application/octet-stream")
+	contentObject, err := storageManager.s3Client.NewObject(contentHash, bucket, "application/octet-stream")
 	if err != nil {
 		log.Println(err.Error())
 		return
 	}
 
-	err = sm.s3Client.Put(contentObject, payload)
+	err = storageManager.s3Client.Put(contentObject, payload)
 	if err != nil {
 		log.Println(err.Error())
 		return
 	}
 
-	cachedFile := &S3CachedFile{contentHash, contentObject.Url(), bucket, []string{sourceUrl}, aliases, len(payload)}
+	cachedFile := storageManager.newCachedFile(contentHash, urls, aliases, len(payload), bucket)
 
 	callback <- cachedFile
 }
 
-func (sm *S3StorageManager) Delete(cachedFile CachedFile) error {
+func (storageManager *S3StorageManager) Delete(cachedFile CachedFile) error {
 	return nil
 }
 
-func (cf *S3CachedFile) LocationType() string {
-	return CachedFile_Remote
-}
-
-func (cf *S3CachedFile) Location() string {
-	return cf.remoteUrl
-}
-
-func (cf *S3CachedFile) Size() int {
-	return cf.size
-}
-
-func (cf *S3CachedFile) ContentHash() string {
-	return cf.contentHash
-}
-
-func (cf *S3CachedFile) Urls() []string {
-	return cf.urls
-}
-
-func (cf *S3CachedFile) Aliases() []string {
-	return cf.aliases
-}
-
-func (cf *S3CachedFile) Serialize() ([]byte, error) {
-	data, err := json.Marshal(cf)
-	if err != nil {
-		return nil, err
+func (storageManager *S3StorageManager) Serve(cachedFile CachedFile, res http.ResponseWriter, req *http.Request) error {
+	bucket, hasBucket := cachedFile.Attributes()["bucket"]
+	if !hasBucket {
+		log.Println("Could not serve file because bucket attribute not set", cachedFile)
+		return errors.New("Invalid bucket attribute.")
 	}
-	return data, nil
+	err := storageManager.s3Client.Proxy(bucket, cachedFile.ContentHash(), res)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (storageManager *S3StorageManager) newCachedFile(contentHash string, urls, aliases []string, size int, bucket string) CachedFile {
+	attributes := make(map[string]string)
+	attributes["bucket"] = bucket
+	cachedFile := new(simpleCachedFile)
+	cachedFile.InternalContentHash = contentHash
+	cachedFile.InternalUrls = urls
+	cachedFile.InternalAliases = aliases
+	cachedFile.InternalSize = size
+	cachedFile.InternalAttributes = attributes
+	return cachedFile
+}
+
+func (cachedFile *S3CachedFile) Size() int {
+	return cachedFile.size
+}
+
+func (cachedFile *S3CachedFile) ContentHash() string {
+	return cachedFile.contentHash
+}
+
+func (cachedFile *S3CachedFile) Urls() []string {
+	return cachedFile.urls
+}
+
+func (cachedFile *S3CachedFile) Aliases() []string {
+	return cachedFile.aliases
+}
+
+func (cachedFile *S3CachedFile) Serve(res http.ResponseWriter, req *http.Request) {
+
 }

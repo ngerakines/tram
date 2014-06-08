@@ -16,7 +16,7 @@ type FileCache interface {
 	WarmAndQuery(url string, aliases []string) CachedFile
 }
 
-type DiskFileCache struct {
+type diskFileCache struct {
 	appConfig config.AppConfig
 
 	warmAndQuery chan warmAndQueryCachedFiles
@@ -33,33 +33,33 @@ type DiskFileCache struct {
 	storageManager StorageManager
 }
 
-func NewDiskFileCache(appConfig config.AppConfig, index Index, storageManager StorageManager, downloader util.RemoteFileFetcher) *DiskFileCache {
-	diskFileCache := new(DiskFileCache)
-	diskFileCache.appConfig = appConfig
-	diskFileCache.index = index
-	diskFileCache.storageManager = storageManager
-	diskFileCache.downloader = downloader
+func newDiskFileCache(appConfig config.AppConfig, index Index, storageManager StorageManager, downloader util.RemoteFileFetcher) FileCache {
+	fileCache := new(diskFileCache)
+	fileCache.appConfig = appConfig
+	fileCache.index = index
+	fileCache.storageManager = storageManager
+	fileCache.downloader = downloader
 
-	diskFileCache.warmAndQuery = make(chan warmAndQueryCachedFiles, 1024)
-	diskFileCache.downloads = make(chan CachedFile, 25)
-	diskFileCache.downloadListeners = NewDownloadListeners()
-	diskFileCache.evictions = make(chan *Item, 25)
-	diskFileCache.lru = NewLRUCache(appConfig.LruSize())
+	fileCache.warmAndQuery = make(chan warmAndQueryCachedFiles, 1024)
+	fileCache.downloads = make(chan CachedFile, 25)
+	fileCache.downloadListeners = NewDownloadListeners()
+	fileCache.evictions = make(chan *Item, 25)
+	fileCache.lru = NewLRUCache(appConfig.LruSize())
 
-	diskFileCache.lru.AddListener(diskFileCache.evictions)
-	go diskFileCache.fileCache()
+	fileCache.lru.AddListener(fileCache.evictions)
+	go fileCache.run()
 
-	return diskFileCache
+	return fileCache
 }
 
-func (dfc *DiskFileCache) Close() {
-	close(dfc.warmAndQuery)
+func (fileCache *diskFileCache) Close() {
+	close(fileCache.warmAndQuery)
 }
 
-func (dfc *DiskFileCache) WarmAndQuery(url string, aliases []string) CachedFile {
+func (fileCache *diskFileCache) WarmAndQuery(url string, aliases []string) CachedFile {
 	command := warmAndQueryCachedFiles{url, aliases, make(chan CachedFile)}
 	defer close(command.Response)
-	dfc.warmAndQuery <- command
+	fileCache.warmAndQuery <- command
 
 	select {
 	case result := <-command.Response:
@@ -69,38 +69,38 @@ func (dfc *DiskFileCache) WarmAndQuery(url string, aliases []string) CachedFile 
 	}
 }
 
-func (dfc *DiskFileCache) fileCache() {
+func (fileCache *diskFileCache) run() {
 	for {
 		select {
-		case command, ok := <-dfc.warmAndQuery:
+		case command, ok := <-fileCache.warmAndQuery:
 			{
 				if !ok {
 					return
 				}
-				dfc.downloadAndNotify(command.Url, command.Aliases, command.Response)
+				fileCache.downloadAndNotify(command.Url, command.Aliases, command.Response)
 			}
-		case cachedFile, ok := <-dfc.downloads:
+		case cachedFile, ok := <-fileCache.downloads:
 			{
 				if !ok {
 					return
 				}
-				dfc.handleDownload(cachedFile)
+				fileCache.handleDownload(cachedFile)
 			}
-		case evicted, ok := <-dfc.evictions:
+		case evicted, ok := <-fileCache.evictions:
 			{
 				if !ok {
 					return
 				}
-				dfc.handleEviction(evicted)
+				fileCache.handleEviction(evicted)
 			}
 		}
 	}
 }
 
-func (dfc *DiskFileCache) findCachedFile(terms []string) CachedFile {
-	contentHash, err := dfc.index.Find(terms)
+func (fileCache *diskFileCache) findCachedFile(terms []string) CachedFile {
+	contentHash, err := fileCache.index.Find(terms)
 	if err == nil {
-		cachedFile, hasCachedFile := dfc.lru.Get(contentHash)
+		cachedFile, hasCachedFile := fileCache.lru.Get(contentHash)
 		if hasCachedFile {
 			return cachedFile.(CachedFile)
 		}
@@ -109,25 +109,25 @@ func (dfc *DiskFileCache) findCachedFile(terms []string) CachedFile {
 	return nil
 }
 
-func (dfc *DiskFileCache) downloadAndNotify(url string, urlAliases []string, channel chan CachedFile) {
-	existingCachedFile := dfc.findCachedFile(append(urlAliases, url))
+func (fileCache *diskFileCache) downloadAndNotify(url string, urlAliases []string, channel chan CachedFile) {
+	existingCachedFile := fileCache.findCachedFile(append(urlAliases, url))
 	if existingCachedFile != nil {
-		dfc.index.Merge(existingCachedFile.ContentHash(), urlAliases, []string{url}, existingCachedFile.Size())
+		fileCache.index.Merge(existingCachedFile, urlAliases, []string{url})
 		channel <- existingCachedFile
 		return
 	}
-	dfc.downloadListeners.Add(url, urlAliases, channel)
-	go Download(dfc.downloader, dfc.storageManager, url, urlAliases, dfc.downloads)
+	fileCache.downloadListeners.Add(url, urlAliases, channel)
+	go Download(fileCache.downloader, fileCache.storageManager, url, urlAliases, fileCache.downloads)
 }
 
-func (dfc *DiskFileCache) handleDownload(cachedFile CachedFile) {
-	dfc.lru.Set(cachedFile.ContentHash(), cachedFile)
-	dfc.index.Update(cachedFile.ContentHash(), cachedFile.Aliases(), cachedFile.Urls(), cachedFile.Size())
-	dfc.downloadListeners.Notify(cachedFile)
+func (fileCache *diskFileCache) handleDownload(cachedFile CachedFile) {
+	fileCache.lru.Set(cachedFile.ContentHash(), cachedFile)
+	fileCache.index.Update(cachedFile)
+	fileCache.downloadListeners.Notify(cachedFile)
 }
 
-func (dfc *DiskFileCache) handleEviction(evicted *Item) {
+func (fileCache *diskFileCache) handleEviction(evicted *Item) {
 	cachedFile := evicted.Value.(CachedFile)
-	dfc.storageManager.Delete(cachedFile)
-	dfc.index.Clear(cachedFile.ContentHash())
+	fileCache.storageManager.Delete(cachedFile)
+	fileCache.index.Clear(cachedFile.ContentHash())
 }

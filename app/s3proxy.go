@@ -7,13 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
-
-// onExitFlushLoop is a callback set by tests to detect the state of the
-// flushLoop() goroutine.
-var onExitFlushLoop func()
 
 // ReverseProxy is an HTTP Handler that takes an incoming request and
 // sends it to another server, proxying the response back to the
@@ -158,45 +153,4 @@ func (p *ReverseProxy) copyResponse(dst io.Writer, src io.Reader) {
 	}
 
 	io.Copy(dst, src)
-}
-
-type writeFlusher interface {
-	io.Writer
-	http.Flusher
-}
-
-type maxLatencyWriter struct {
-	dst     writeFlusher
-	latency time.Duration
-
-	lk   sync.Mutex // protects Write + Flush
-	done chan bool
-}
-
-func (m *maxLatencyWriter) Write(p []byte) (int, error) {
-	m.lk.Lock()
-	defer m.lk.Unlock()
-	return m.dst.Write(p)
-}
-
-func (m *maxLatencyWriter) flushLoop() {
-	t := time.NewTicker(m.latency)
-	defer t.Stop()
-	for {
-		select {
-		case <-m.done:
-			if onExitFlushLoop != nil {
-				onExitFlushLoop()
-			}
-			return
-		case <-t.C:
-			m.lk.Lock()
-			m.dst.Flush()
-			m.lk.Unlock()
-		}
-	}
-}
-
-func (m *maxLatencyWriter) stop() {
-	m.done <- true
 }

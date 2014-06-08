@@ -1,9 +1,10 @@
 package app
 
 import (
-	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 )
@@ -19,15 +20,15 @@ type LocalCachedFile struct {
 	aliases     []string
 }
 
-func NewLocalStorageManager(basePath string) StorageManager {
+func newLocalStorageManager(basePath string) StorageManager {
 	return &LocalStorageManager{basePath}
 }
 
-func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHash string, aliases []string, callback chan CachedFile) {
-	path := filepath.Join(sm.basePath, contentHash)
+func (storageManager *LocalStorageManager) Store(contentHash string, payload []byte, urls, aliases []string, callback chan CachedFile) {
+	path := filepath.Join(storageManager.basePath, contentHash)
 
-	cachedFile := NewLocalCachedFile(contentHash, path, []string{sourceUrl}, aliases)
-	err := sm.persistCachedFileToDisk(cachedFile, payload)
+	cachedFile := storageManager.newCachedFile(contentHash, urls, aliases, len(payload), path)
+	err := ioutil.WriteFile(path, payload, 00777)
 	if err != nil {
 		log.Println(err)
 		return
@@ -36,56 +37,33 @@ func (sm *LocalStorageManager) Store(payload []byte, sourceUrl string, contentHa
 	callback <- cachedFile
 }
 
-func (sm *LocalStorageManager) persistCachedFileToDisk(cachedFile *LocalCachedFile, payload []byte) error {
-	location := cachedFile.Location()
-	err := ioutil.WriteFile(location, payload, 00777)
-	return err
-}
-
-func (sm *LocalStorageManager) Delete(cachedFile CachedFile) error {
-	err := os.Remove(cachedFile.Location())
+func (storageManager *LocalStorageManager) Delete(cachedFile CachedFile) error {
+	path := filepath.Join(storageManager.basePath, cachedFile.ContentHash())
+	err := os.Remove(path)
 	if err != nil {
 		return err
 	}
 	return err
 }
 
-func NewLocalCachedFile(contentHash, path string, urls []string, aliases []string) *LocalCachedFile {
-	return &LocalCachedFile{contentHash, path, urls, aliases}
-}
-
-func (cf *LocalCachedFile) LocationType() string {
-	return CachedFile_Local
-}
-
-func (cf *LocalCachedFile) Location() string {
-	return cf.path
-}
-
-func (cf *LocalCachedFile) Size() int {
-	stat, err := os.Stat(cf.path)
-	if err != nil {
-		return 0
+func (storageManager *LocalStorageManager) Serve(cachedFile CachedFile, res http.ResponseWriter, req *http.Request) error {
+	path, hasPath := cachedFile.Attributes()["path"]
+	if !hasPath {
+		log.Println("Could not serve file because path attribute not set", cachedFile)
+		return errors.New("Invalid cached file.")
 	}
-	return int(stat.Size())
+	http.ServeFile(res, req, path)
+	return nil
 }
 
-func (cf *LocalCachedFile) ContentHash() string {
-	return cf.contentHash
-}
-
-func (cf *LocalCachedFile) Urls() []string {
-	return cf.urls
-}
-
-func (cf *LocalCachedFile) Aliases() []string {
-	return cf.aliases
-}
-
-func (cf *LocalCachedFile) Serialize() ([]byte, error) {
-	data, err := json.Marshal(cf)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+func (storageManager *LocalStorageManager) newCachedFile(contentHash string, urls, aliases []string, size int, path string) CachedFile {
+	attributes := make(map[string]string)
+	attributes["path"] = path
+	cachedFile := new(simpleCachedFile)
+	cachedFile.InternalContentHash = contentHash
+	cachedFile.InternalUrls = urls
+	cachedFile.InternalAliases = aliases
+	cachedFile.InternalSize = size
+	cachedFile.InternalAttributes = attributes
+	return cachedFile
 }

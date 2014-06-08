@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+type Blueprint interface {
+	AddRoutes(p *pat.PatternServeMux)
+}
+
 type AppContext struct {
 	registry       metrics.Registry
 	appConfig      config.AppConfig
@@ -88,16 +92,16 @@ func (app *AppContext) Stop() {
 }
 
 func (app *AppContext) initCache() error {
-	app.index = NewLocalIndex(app.appConfig.Index().LocalBasePath())
-	app.storageManager = NewLocalStorageManager(app.appConfig.Storage().BasePath())
-	app.fileCache = NewDiskFileCache(app.appConfig, app.index, app.storageManager, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
+	app.index = newLocalIndex(app.appConfig.Index().LocalBasePath())
+	app.storageManager = newLocalStorageManager(app.appConfig.Storage().BasePath())
+	app.fileCache = newDiskFileCache(app.appConfig, app.index, app.storageManager, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
 	return nil
 }
 
 func (app *AppContext) initApis() error {
 	p := pat.New()
 
-	app.apiBlueprint = newApiBlueprint(app.fileCache)
+	app.apiBlueprint = newApiBlueprint(app.fileCache, app.storageManager)
 	app.apiBlueprint.AddRoutes(p)
 
 	app.adminBlueprint = newAdminBlueprint(app.registry, app.appConfig)

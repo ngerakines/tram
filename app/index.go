@@ -10,17 +10,10 @@ import (
 	"path/filepath"
 )
 
-type indexData struct {
-	ContentHash string
-	Aliases     []string
-	Urls        []string
-	size        int
-}
-
 type Index interface {
 	Find(terms []string) (string, error)
-	Update(contentHash string, aliases, urls []string, size int) error
-	Merge(contentHash string, aliases, urls []string, size int) error
+	Update(cachedFile CachedFile) error
+	Merge(cachedFile CachedFile, aliases, urls []string) error
 	Clear(id string) error
 }
 
@@ -30,10 +23,11 @@ type localIndex struct {
 	aliases map[string]string
 }
 
-func NewLocalIndex(path string) Index {
+func newLocalIndex(path string) Index {
 	index := new(localIndex)
 	index.path = path
 	index.aliases = make(map[string]string)
+	index.init()
 	return index
 }
 
@@ -53,12 +47,13 @@ func (index *localIndex) init() {
 		}
 		_, file := filepath.Split(path)
 		data, err := index.load(file)
+		log.Println("Loading", data, err)
 		if err == nil {
-			for _, alias := range data.Aliases {
-				index.aliases[alias] = data.ContentHash
+			for _, alias := range data.Aliases() {
+				index.aliases[alias] = data.ContentHash()
 			}
-			for _, url := range data.Urls {
-				index.aliases[url] = data.ContentHash
+			for _, url := range data.Urls() {
+				index.aliases[url] = data.ContentHash()
 			}
 		}
 		return nil
@@ -69,32 +64,23 @@ func (index *localIndex) init() {
 	}
 }
 
-func (index *localIndex) Update(contentHash string, aliases, urls []string, size int) error {
-	err := index.write(contentHash, aliases, urls)
+func (index *localIndex) Update(cachedFile CachedFile) error {
+	err := index.write(cachedFile)
 	if err != nil {
 		return err
 	}
-	for _, alias := range aliases {
-		index.aliases[alias] = contentHash
+	for _, alias := range cachedFile.Aliases() {
+		index.aliases[alias] = cachedFile.ContentHash()
 	}
-	for _, url := range urls {
-		index.aliases[url] = contentHash
+	for _, url := range cachedFile.Urls() {
+		index.aliases[url] = cachedFile.ContentHash()
 	}
 	return nil
 }
 
-func (index *localIndex) Merge(contentHash string, aliases, urls []string, size int) error {
-
-	existingData, err := index.load(contentHash)
-	if err != nil {
-		return index.Update(contentHash, aliases, urls, size)
-	}
-	if existingData.size != size {
-		log.Println("Merge called and there is a size mismatch.", contentHash)
-	}
-
+func (index *localIndex) Merge(cachedFile CachedFile, aliases, urls []string) error {
 	allAliases := make([]string, 0, 0)
-	for _, alias := range existingData.Aliases {
+	for _, alias := range cachedFile.Aliases() {
 		allAliases = append(allAliases, alias)
 	}
 	for _, alias := range aliases {
@@ -102,36 +88,43 @@ func (index *localIndex) Merge(contentHash string, aliases, urls []string, size 
 	}
 
 	allUrls := make([]string, 0, 0)
-	for _, url := range existingData.Urls {
+	for _, url := range cachedFile.Urls() {
 		allUrls = append(allUrls, url)
 	}
 	for _, url := range urls {
 		allUrls = append(allUrls, url)
 	}
 
-	err = index.write(contentHash, allAliases, allUrls)
+	newCachedFile := new(simpleCachedFile)
+	newCachedFile.InternalContentHash = cachedFile.ContentHash()
+	newCachedFile.InternalUrls = allUrls
+	newCachedFile.InternalAliases = allAliases
+	newCachedFile.InternalSize = cachedFile.Size()
+	newCachedFile.InternalAttributes = cachedFile.Attributes()
+
+	err := index.write(newCachedFile)
 	if err != nil {
 		return err
 	}
-	for _, alias := range aliases {
-		index.aliases[alias] = contentHash
+	for _, alias := range allAliases {
+		index.aliases[alias] = cachedFile.ContentHash()
 	}
-	for _, url := range urls {
-		index.aliases[url] = contentHash
+	for _, url := range allUrls {
+		index.aliases[url] = cachedFile.ContentHash()
 	}
 	return nil
 }
 
 func (index *localIndex) Clear(contentHash string) error {
-	data, err := index.load(contentHash)
+	cachedFile, err := index.load(contentHash)
 	if err != nil {
 		return err
 	}
 
-	for _, alias := range data.Aliases {
+	for _, alias := range cachedFile.Aliases() {
 		delete(index.aliases, alias)
 	}
-	for _, url := range data.Urls {
+	for _, url := range cachedFile.Urls() {
 		delete(index.aliases, url)
 	}
 
@@ -145,16 +138,18 @@ func (index *localIndex) Find(terms []string) (string, error) {
 	for _, term := range terms {
 		contentHash, hasContentHash := index.aliases[term]
 		if hasContentHash {
+			log.Println("Found content", contentHash, "for terms", terms)
 			return contentHash, nil
 		}
 	}
+	log.Println("No content has found for terms", terms)
 	return "", errors.New("No content hash found for term")
 }
 
-func (index *localIndex) write(contentHash string, aliases, urls []string) error {
-	location := index.indexPath(contentHash)
+func (index *localIndex) write(cachedFile CachedFile) error {
+	location := index.indexPath(cachedFile.ContentHash())
 
-	data, err := json.Marshal(&indexData{ContentHash: contentHash, Aliases: aliases, Urls: urls})
+	data, err := json.Marshal(cachedFile)
 	if err != nil {
 		return err
 	}
@@ -163,7 +158,7 @@ func (index *localIndex) write(contentHash string, aliases, urls []string) error
 	return err
 }
 
-func (index *localIndex) load(contentHash string) (*indexData, error) {
+func (index *localIndex) load(contentHash string) (CachedFile, error) {
 	location := index.indexPath(contentHash)
 
 	content, err := ioutil.ReadFile(location)
@@ -171,12 +166,12 @@ func (index *localIndex) load(contentHash string) (*indexData, error) {
 		return nil, err
 	}
 
-	var data indexData
-	err = json.Unmarshal(content, &data)
+	var cachedFile simpleCachedFile
+	err = json.Unmarshal(content, &cachedFile)
 	if err != nil {
 		return nil, err
 	}
-	return &data, nil
+	return &cachedFile, nil
 }
 
 func (index *localIndex) indexPath(id string) string {
