@@ -1,8 +1,8 @@
 package util
 
 import (
-	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -28,7 +28,7 @@ func (err DownloadError) Error() string {
 
 func (dd *DedupingDownloader) downloader(url string) ([]byte, error) {
 	if dd.downloadPool.IsInTransit(url) {
-		fmt.Println("Cannot download", url, "because it is already in transit.")
+		log.Println("Cannot download", url, "because it is already in transit.")
 		return nil, DownloadError{"Url already being downloaded"}
 	}
 	dd.downloadPool.Download(url)
@@ -73,12 +73,13 @@ func DedupeWrapDownloader(downloader RemoteFileFetcher) RemoteFileFetcher {
 func DefaultRemoteFileFetcher(url string) ([]byte, error) {
 	resp, err := http.Get(url)
 	if err != nil {
+		log.Println(err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err)
 		return nil, err
 	}
 	return body, nil

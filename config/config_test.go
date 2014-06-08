@@ -37,6 +37,7 @@ func initTempFileManager(path string) *tempFileManager {
 	fm.initFile("basic", `{
 		"listen": ":7041",
 		"lruSize": 120000,
+		"index": {"engine": "local", "localBasePath": "./index"},
 		"storage": {"engine": "s3", "s3Buckets": ["localhost"], "s3Key": "foo", "s3Secret": "bar", "s3Host": "localhost"}
 		}`)
 	return fm
