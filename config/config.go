@@ -28,10 +28,10 @@ type IndexAppConfig interface {
 type StorageAppConfig interface {
 	Engine() string
 	BasePath() string
-	S3Key() string
-	S3Secret() string
-	S3Buckets() []string
-	S3Host() string
+	S3Key() (string, error)
+	S3Secret() (string, error)
+	S3Buckets() ([]string, error)
+	S3Host() (string, error)
 }
 
 func LoadAppConfig(givenPath string) (AppConfig, error) {

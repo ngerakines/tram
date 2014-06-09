@@ -93,7 +93,23 @@ func (app *AppContext) Stop() {
 
 func (app *AppContext) initCache() error {
 	app.index = newLocalIndex(app.appConfig.Index().LocalBasePath())
-	app.storageManager = newLocalStorageManager(app.appConfig.Storage().BasePath())
+
+	switch app.appConfig.Storage().Engine() {
+	case "local":
+		{
+			app.storageManager = newLocalStorageManager(app.appConfig.Storage().BasePath())
+		}
+	case "s3":
+		{
+			s3Client := app.buildStorageS3Client()
+			buckets, err := app.appConfig.Storage().S3Buckets()
+			if err != nil {
+				panic(err)
+			}
+			app.storageManager = NewS3StorageManager(buckets, s3Client)
+		}
+	}
+
 	app.fileCache = newDiskFileCache(app.appConfig, app.index, app.storageManager, util.DedupeWrapDownloader(util.DefaultRemoteFileFetcher))
 	return nil
 }
@@ -111,4 +127,24 @@ func (app *AppContext) initApis() error {
 	app.negroni.UseHandler(p)
 
 	return nil
+}
+
+func (app *AppContext) buildStorageS3Client() S3Client {
+	if app.appConfig.Storage().Engine() != "s3" {
+		return nil
+	}
+	awsKey, err := app.appConfig.Storage().S3Key()
+	if err != nil {
+		panic(err)
+	}
+	awsSecret, err := app.appConfig.Storage().S3Secret()
+	if err != nil {
+		panic(err)
+	}
+	awsHost, err := app.appConfig.Storage().S3Host()
+	if err != nil {
+		panic(err)
+	}
+	log.Println("Creating s3 client with host", awsHost, "key", awsKey, "and secret", awsSecret)
+	return NewAmazonS3Client(NewBasicS3Config(awsKey, awsSecret, awsHost))
 }

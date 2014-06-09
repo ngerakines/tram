@@ -26,6 +26,12 @@ type localIndex struct {
 func newLocalIndex(path string) Index {
 	index := new(localIndex)
 	index.path = path
+
+	err := os.MkdirAll(path, 0777)
+	if err != nil {
+		panic(err)
+	}
+
 	index.aliases = make(map[string]string)
 	index.init()
 	return index
@@ -47,7 +53,6 @@ func (index *localIndex) init() {
 		}
 		_, file := filepath.Split(path)
 		data, err := index.load(file)
-		log.Println("Loading", data, err)
 		if err == nil {
 			for _, alias := range data.Aliases() {
 				index.aliases[alias] = data.ContentHash()

@@ -2,8 +2,7 @@ package config
 
 import (
 	"encoding/json"
-	// "log"
-	// "reflect"
+	"errors"
 )
 
 type userAppConfig struct {
@@ -91,20 +90,32 @@ func (c *userStorageAppConfig) BasePath() string {
 	return c.basePath
 }
 
-func (c *userStorageAppConfig) S3Key() string {
-	return c.s3Key
+func (c *userStorageAppConfig) S3Key() (string, error) {
+	if c.engine == "s3" {
+		return c.s3Key, nil
+	}
+	return "", errors.New("S3 uploader engine is not enabled.")
 }
 
-func (c *userStorageAppConfig) S3Secret() string {
-	return c.s3Secret
+func (c *userStorageAppConfig) S3Secret() (string, error) {
+	if c.engine == "s3" {
+		return c.s3Secret, nil
+	}
+	return "", errors.New("S3 uploader engine is not enabled.")
 }
 
-func (c *userStorageAppConfig) S3Buckets() []string {
-	return c.s3Buckets
+func (c *userStorageAppConfig) S3Buckets() ([]string, error) {
+	if c.engine == "s3" {
+		return c.s3Buckets, nil
+	}
+	return nil, errors.New("S3 uploader engine is not enabled.")
 }
 
-func (c *userStorageAppConfig) S3Host() string {
-	return c.s3Host
+func (c *userStorageAppConfig) S3Host() (string, error) {
+	if c.engine == "s3" {
+		return c.s3Host, nil
+	}
+	return "", errors.New("S3 uploader engine is not enabled.")
 }
 
 func (c *userIndexAppConfig) Engine() string {
