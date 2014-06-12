@@ -11,7 +11,7 @@ default[:tram][:basePath] = "/home/tram/data"
 
 default[:tram][:config] = {}
 default[:tram][:config][:listen] = ":#{node[:tram][:port]}"
-default[:tram][:config][:listen] = 120000
+default[:tram][:config][:lruSize] = 120000
 
 default[:tram][:config][:index] = {}
 default[:tram][:config][:index][:engine] = "local"
