@@ -145,6 +145,7 @@ func (app *AppContext) buildStorageS3Client() S3Client {
 	if err != nil {
 		panic(err)
 	}
+	verifySsl, _ := app.appConfig.Storage().S3VerifySsl()
 	log.Println("Creating s3 client with host", awsHost, "key", awsKey, "and secret", awsSecret)
-	return NewAmazonS3Client(NewBasicS3Config(awsKey, awsSecret, awsHost))
+	return NewAmazonS3Client(NewBasicS3Config(awsKey, awsSecret, awsHost, verifySsl))
 }

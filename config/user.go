@@ -19,12 +19,13 @@ type userIndexAppConfig struct {
 }
 
 type userStorageAppConfig struct {
-	engine    string
-	basePath  string
-	s3Key     string
-	s3Secret  string
-	s3Host    string
-	s3Buckets []string
+	engine      string
+	basePath    string
+	s3Key       string
+	s3Secret    string
+	s3Host      string
+	s3Buckets   []string
+	s3VerifySsl bool
 }
 
 func NewUserAppConfig(content []byte) (AppConfig, error) {
@@ -117,6 +118,12 @@ func (c *userStorageAppConfig) S3Host() (string, error) {
 	}
 	return "", errors.New("S3 uploader engine is not enabled.")
 }
+func (c *userStorageAppConfig) S3VerifySsl() (bool, error) {
+	if c.engine == "s3" {
+		return c.s3VerifySsl, nil
+	}
+	return true, errors.New("S3 uploader engine is not enabled.")
+}
 
 func (c *userIndexAppConfig) Engine() string {
 	return c.engine
@@ -162,6 +169,10 @@ func newUserStorageAppConfig(m map[string]interface{}) (StorageAppConfig, error)
 		config.s3Buckets, err = parseStringArray("storage", "s3Buckets", data)
 		if err != nil {
 			return nil, err
+		}
+		config.s3VerifySsl, err = parseBool("storage", "s3VerifySsl", data)
+		if err != nil {
+			config.s3VerifySsl = true
 		}
 	}
 
