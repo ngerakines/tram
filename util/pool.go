@@ -3,7 +3,6 @@ package util
 import (
 	"io/ioutil"
 	"log"
-	"net/http"
 	"sync"
 	"time"
 )
@@ -71,7 +70,8 @@ func DedupeWrapDownloader(downloader RemoteFileFetcher) RemoteFileFetcher {
 }
 
 func DefaultRemoteFileFetcher(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+	httpClient := NewHttpClient(false, 30*time.Second)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		log.Println(err)
 		return nil, err
