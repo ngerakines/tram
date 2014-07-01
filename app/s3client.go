@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"github.com/ngerakines/tram/util"
@@ -101,6 +100,21 @@ func (client *AmazonS3Client) Get(bucket, file string) (S3Object, error) {
 	return NewAmazonS3ResponseObject(file, bucket, contentType, body), nil
 }
 
+func (client *AmazonS3Client) Delete(bucket, file string) error {
+	resource := fmt.Sprintf("/%s/%s", bucket, file)
+	date, signature := client.createSignature("DELETE", "", resource)
+	headers := make(map[string]string)
+	headers["Host"] = fmt.Sprintf("%s.s3.amazonaws.com", bucket)
+	headers["Date"] = date
+	headers["Authorization"] = fmt.Sprintf("AWS %s:%s", client.config.key, signature)
+	url := fmt.Sprintf("%s/%s/%s", client.config.host, bucket, file)
+	_, err := client.submitDeleteRequest(url, headers)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (client *AmazonS3Client) Proxy(bucket, file string, rw http.ResponseWriter) error {
 	resource := fmt.Sprintf("/%s/%s", bucket, file)
 	date, signature := client.createSignature("GET", "", resource)
@@ -185,10 +199,8 @@ func (client *AmazonS3Client) submitDeleteRequest(url string, headers map[string
 }
 
 func (client *AmazonS3Client) executeRequest(method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: !client.config.verifySsl},
-	}
-	httpClient := &http.Client{Transport: tr}
+	log.Println("Preparing to send", method, "request to", url, "with ssl checking", !client.config.verifySsl)
+	httpClient := util.NewHttpClient(!client.config.verifySsl, 30*time.Second)
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		log.Println("Error creating request", request)
@@ -204,21 +216,6 @@ func (client *AmazonS3Client) executeRequest(method, url string, body io.Reader,
 	}
 	log.Println("got response", response)
 	return response, nil
-}
-
-func (client *AmazonS3Client) Delete(bucket, file string) error {
-	resource := fmt.Sprintf("/%s/%s", bucket, file)
-	date, signature := client.createSignature("DELETE", "", resource)
-	headers := make(map[string]string)
-	headers["Host"] = fmt.Sprintf("%s.s3.amazonaws.com", bucket)
-	headers["Date"] = date
-	headers["Authorization"] = fmt.Sprintf("AWS %s:%s", client.config.key, signature)
-	url := fmt.Sprintf("%s/%s/%s", client.config.host, bucket, file)
-	_, err := client.submitDeleteRequest(url, headers)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (client *AmazonS3Client) NewObject(name, bucket, contentType string) (S3Object, error) {
