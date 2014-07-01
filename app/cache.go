@@ -17,7 +17,7 @@ type FileCache interface {
 }
 
 type diskFileCache struct {
-	appConfig config.AppConfig
+	appConfig *config.AppConfig
 
 	warmAndQuery chan warmAndQueryCachedFiles
 	downloads    chan CachedFile
@@ -33,7 +33,7 @@ type diskFileCache struct {
 	storageManager StorageManager
 }
 
-func newDiskFileCache(appConfig config.AppConfig, index Index, storageManager StorageManager, downloader util.RemoteFileFetcher) FileCache {
+func newDiskFileCache(appConfig *config.AppConfig, index Index, storageManager StorageManager, downloader util.RemoteFileFetcher) FileCache {
 	fileCache := new(diskFileCache)
 	fileCache.appConfig = appConfig
 	fileCache.index = index
@@ -44,7 +44,7 @@ func newDiskFileCache(appConfig config.AppConfig, index Index, storageManager St
 	fileCache.downloads = make(chan CachedFile, 25)
 	fileCache.downloadListeners = NewDownloadListeners()
 	fileCache.evictions = make(chan *Item, 25)
-	fileCache.lru = NewLRUCache(appConfig.LruSize())
+	fileCache.lru = NewLRUCache(appConfig.LruSize)
 
 	fileCache.lru.AddListener(fileCache.evictions)
 	go fileCache.run()

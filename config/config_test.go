@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"github.com/ngerakines/testutils"
 	"io/ioutil"
 	"log"
@@ -27,7 +28,7 @@ func (fm *tempFileManager) get(name string) (string, error) {
 	if hasPath {
 		return path, nil
 	}
-	return "", appConfigError{"No config file exists with that label."}
+	return "", errors.New("No config file exists with that label.")
 }
 
 func initTempFileManager(path string) *tempFileManager {
@@ -47,7 +48,7 @@ func TestDefaultConfig(t *testing.T) {
 	dm := testutils.NewDirectoryManager()
 	defer dm.Close()
 
-	appConfig, err := NewDefaultAppConfig()
+	appConfig := NewDefaultAppConfig()
 	if err != nil {
 		t.Error(err.Error())
 		return

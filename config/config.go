@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"github.com/ngerakines/preview/util"
 	"io/ioutil"
 	"os"
@@ -8,47 +9,46 @@ import (
 	"runtime"
 )
 
-type appConfigError struct {
-	message string
+type AppConfig struct {
+	Listen  string `json:"listen"`
+	LruSize uint64 `json:"lurSize"`
+	Storage struct {
+		Engine      string   `json:"engine"`
+		BasePath    string   `json:"basePath"`
+		S3Key       string   `json:"s3Key"`
+		S3Secret    string   `json:"s3Secret"`
+		S3Buckets   []string `json:"s3Buckets"`
+		S3Host      string   `json:"s3Host"`
+		S3VerifySsl bool     `json:"s3VerifySsl"`
+	} `json:"storage"`
+	Index struct {
+		Engine        string `json:"engine"`
+		LocalBasePath string `json:"localBasePath"`
+	} `json:"index"`
+	Source string `json:"-"`
 }
 
-type AppConfig interface {
-	Listen() string
-	LruSize() uint64
-	Storage() StorageAppConfig
-	Index() IndexAppConfig
-	Source() string
-}
-
-type IndexAppConfig interface {
-	Engine() string
-	LocalBasePath() string
-}
-
-type StorageAppConfig interface {
-	Engine() string
-	BasePath() string
-	S3Key() (string, error)
-	S3Secret() (string, error)
-	S3Buckets() ([]string, error)
-	S3Host() (string, error)
-	S3VerifySsl() (bool, error)
-}
-
-func LoadAppConfig(givenPath string) (AppConfig, error) {
+func LoadAppConfig(givenPath string) (*AppConfig, error) {
 	configPath := determineConfigPath(givenPath)
 	if configPath == "" {
-		return NewDefaultAppConfig()
+		data := NewDefaultAppConfig()
+		return ParseJson([]byte(data))
 	}
-	content, err := ioutil.ReadFile(configPath)
+	data, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
-	return NewUserAppConfig(content)
+	return ParseJson(data)
 }
 
-func (err appConfigError) Error() string {
-	return err.message
+func ParseJson(data []byte) (*AppConfig, error) {
+	var appConfig AppConfig
+	err := json.Unmarshal(data, &appConfig)
+	if err != nil {
+		return nil, err
+	}
+	appConfig.Source = string(data)
+	return &appConfig, nil
 }
 
 func determineConfigPath(givenPath string) string {

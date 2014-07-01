@@ -20,7 +20,7 @@ type Blueprint interface {
 
 type AppContext struct {
 	registry       metrics.Registry
-	appConfig      config.AppConfig
+	appConfig      *config.AppConfig
 	index          Index
 	storageManager StorageManager
 	fileCache      FileCache
@@ -30,7 +30,7 @@ type AppContext struct {
 	listener       *stoppableListener.StoppableListener
 }
 
-func NewApp(appConfig config.AppConfig) (*AppContext, error) {
+func NewApp(appConfig *config.AppConfig) (*AppContext, error) {
 	log.Println("Creating application with config", appConfig)
 	app := new(AppContext)
 	app.registry = metrics.NewRegistry()
@@ -53,7 +53,7 @@ func NewApp(appConfig config.AppConfig) (*AppContext, error) {
 }
 
 func (app *AppContext) Start() {
-	httpListener, err := net.Listen("tcp", app.appConfig.Listen())
+	httpListener, err := net.Listen("tcp", app.appConfig.Listen)
 	if err != nil {
 		panic(err)
 	}
@@ -92,20 +92,17 @@ func (app *AppContext) Stop() {
 }
 
 func (app *AppContext) initCache() error {
-	app.index = newLocalIndex(app.appConfig.Index().LocalBasePath())
+	app.index = newLocalIndex(app.appConfig.Index.LocalBasePath)
 
-	switch app.appConfig.Storage().Engine() {
+	switch app.appConfig.Storage.Engine {
 	case "local":
 		{
-			app.storageManager = newLocalStorageManager(app.appConfig.Storage().BasePath())
+			app.storageManager = newLocalStorageManager(app.appConfig.Storage.BasePath)
 		}
 	case "s3":
 		{
 			s3Client := app.buildStorageS3Client()
-			buckets, err := app.appConfig.Storage().S3Buckets()
-			if err != nil {
-				panic(err)
-			}
+			buckets := app.appConfig.Storage.S3Buckets
 			app.storageManager = NewS3StorageManager(buckets, s3Client)
 		}
 	}
@@ -130,22 +127,13 @@ func (app *AppContext) initApis() error {
 }
 
 func (app *AppContext) buildStorageS3Client() S3Client {
-	if app.appConfig.Storage().Engine() != "s3" {
+	if app.appConfig.Storage.Engine != "s3" {
 		return nil
 	}
-	awsKey, err := app.appConfig.Storage().S3Key()
-	if err != nil {
-		panic(err)
-	}
-	awsSecret, err := app.appConfig.Storage().S3Secret()
-	if err != nil {
-		panic(err)
-	}
-	awsHost, err := app.appConfig.Storage().S3Host()
-	if err != nil {
-		panic(err)
-	}
-	verifySsl, _ := app.appConfig.Storage().S3VerifySsl()
+	awsKey := app.appConfig.Storage.S3Key
+	awsSecret := app.appConfig.Storage.S3Secret
+	awsHost := app.appConfig.Storage.S3Host
+	verifySsl := app.appConfig.Storage.S3VerifySsl
 	log.Println("Creating s3 client with host", awsHost, "key", awsKey, "and secret", awsSecret)
 	return NewAmazonS3Client(NewBasicS3Config(awsKey, awsSecret, awsHost, verifySsl))
 }

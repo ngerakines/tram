@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 )
 
-func NewDefaultAppConfig() (AppConfig, error) {
+func NewDefaultAppConfig() string {
 	return buildDefaultConfig(defaultBasePath)
 }
 
-func NewDefaultAppConfigWithBaseDirectory(root string) (AppConfig, error) {
+func NewDefaultAppConfigWithBaseDirectory(root string) string {
 	return buildDefaultConfig(func(section string) string {
 		cacheDirectory := filepath.Join(root, ".cache", section)
 		os.MkdirAll(cacheDirectory, 00777)
@@ -18,8 +18,8 @@ func NewDefaultAppConfigWithBaseDirectory(root string) (AppConfig, error) {
 	})
 }
 
-func buildDefaultConfig(basePathFunc basePath) (AppConfig, error) {
-	config := `{
+func buildDefaultConfig(basePathFunc basePath) string {
+	return `{
    "listen": ":7040",
    "lruSize": 120000,
    "index": {
@@ -31,7 +31,6 @@ func buildDefaultConfig(basePathFunc basePath) (AppConfig, error) {
       "basePath": "` + basePathFunc("storage") + `"
    }
 }`
-	return NewUserAppConfig([]byte(config))
 }
 
 type basePath func(string) string
