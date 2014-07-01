@@ -40,6 +40,8 @@ func NewApp(appConfig config.AppConfig) (*AppContext, error) {
 
 	app.appConfig = appConfig
 
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
 	var err error
 	err = app.initCache()
 	if err != nil {
@@ -49,6 +51,7 @@ func NewApp(appConfig config.AppConfig) (*AppContext, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return app, nil
 }
 
