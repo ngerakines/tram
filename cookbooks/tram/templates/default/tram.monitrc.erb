@@ -1,0 +1,6 @@
+check process tram with pidfile /home/tram/tram.pid
+	start program = "/etc/init.d/tram start"
+	stop program = "/etc/init.d/tram stop"
+	if failed host localhost port <%= node[:tram][:port] %>
+        protocol HTTP request "/admin/metrics" then restart
+	if 5 restarts within 5 cycles then alert

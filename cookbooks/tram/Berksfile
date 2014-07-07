@@ -4,3 +4,7 @@ metadata
 
 cookbook 'apt'
 cookbook 'yum'
+cookbook 'logrotate'
+cookbook 'monit', :github => 'phlipper/chef-monit'
+cookbook 'yum-epel'
+cookbook 'build-essential'

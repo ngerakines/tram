@@ -2,7 +2,7 @@ package config
 
 import (
 	"encoding/json"
-	"github.com/ngerakines/preview/util"
+	"github.com/ngerakines/tram/util"
 	"io/ioutil"
 	"os"
 	"path/filepath"

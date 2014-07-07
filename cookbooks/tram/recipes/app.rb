@@ -7,8 +7,18 @@
 # This project and its contents are open source under the MIT license.
 #
 
+node.set["monit"]["reload_on_change"] = false
+
 include_recipe 'apt'
 include_recipe 'yum'
+
+if node[:tram][:enable_monit] then
+  include_recipe 'monit::default'
+end
+
+if node[:tram][:enable_logrotate] then
+  include_recipe 'logrotate::default'
+end
 
 require 'json'
 
@@ -76,4 +86,23 @@ end
 service 'tram' do
   provider Chef::Provider::Service::Init
   action [:start]
+end
+
+if node[:tram][:enable_monit] then
+  monit_monitrc 'tram' do
+    variables({ category: 'tram' })
+  end
+end
+
+if node[:tram][:enable_logrotate] then
+  logrotate_app 'tram' do
+    cookbook  'logrotate'
+    path      ['/var/log/tram.log']
+    options   ['missingok', 'delaycompress', 'copytruncate']
+    frequency 'daily'
+    size      1048576
+    maxsize   2097152
+    rotate    2
+    create    '644 root root'
+  end
 end

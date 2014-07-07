@@ -3,11 +3,11 @@
 # tram - this script starts and stops the tram daemon
 #
 # chkconfig:   2345 20 80
-# description: Tram is a tram image daemon.
+# description: Tram is a caching daemon.
 # processname: tram
 # config:      /etc/tram.config
 # config:      /etc/sysconfig/tram
-# pidfile:     /var/run/tram.pid
+# pidfile:     /home/tram/tram.pid
  
 # Source function library.
 [ -f /etc/rc.d/init.d/functions ] && . /etc/rc.d/init.d/functions
@@ -21,12 +21,17 @@
 tram="/home/tram/tram"
 prog=$(basename $tram)
  
+TRAM_CONF_FILE="/etc/tram.conf"
+ 
 [ -f /etc/sysconfig/tram ] && . /etc/sysconfig/tram
  
 start() {
     [ -x $tram ] || exit 5
+    [ -f $TRAM_CONF_FILE ] || exit 6
     echo -n $"Starting $prog: "
-    daemon $tram > /var/log/tram.log 2>&1 &
+    daemon $tram --config $TRAM_CONF_FILE > /var/log/tram.log 2>&1 &
+    PID=$!
+    echo $PID > /home/tram/tram.pid
     retval=$?
     echo
     return $retval

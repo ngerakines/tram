@@ -8,6 +8,10 @@ version          '1.0.0'
 
 depends 'apt'
 depends 'yum'
+depends 'yum-epel'
+depends 'monit', '~> 1.5.3'
+depends 'logrotate', '~> 1.5.0'
+depends 'build-essential', '~> 2.0'
 
 supports 'centos'
 supports 'ubuntu'

@@ -22,3 +22,11 @@ func Cwd() string {
 	}
 	return pwd
 }
+
+// CanLoadFile returns true if a file can be opened or false if otherwise.
+func CanLoadFile(path string) bool {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+		return false
+	}
+	return true
+}

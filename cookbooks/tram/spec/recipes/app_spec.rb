@@ -17,7 +17,7 @@ describe 'tram::app' do
 
         let(:chef_run) do
           ChefSpec::Runner.new(platform: platform_name, version: platform_version) do |node|
-            node.set['preview']['install_type'] = 'none'
+            node.set['tram']['install_type'] = 'none'
           end.converge('tram::app')
         end
 
