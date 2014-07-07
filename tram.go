@@ -21,7 +21,7 @@ Options:
   --version        Show version.
   --config=<file>  The configuration file to use.`
 
-	arguments, _ := docopt.Parse(usage, nil, true, "1.0.0", false)
+	arguments, _ := docopt.Parse(usage, nil, true, "1.1.0", false)
 
 	command := newDaemonCommand(arguments)
 	command.Execute()
