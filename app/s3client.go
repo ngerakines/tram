@@ -200,7 +200,7 @@ func (client *AmazonS3Client) submitDeleteRequest(url string, headers map[string
 
 func (client *AmazonS3Client) executeRequest(method, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
 	log.Println("Preparing to send", method, "request to", url, "with ssl checking", !client.config.verifySsl)
-	httpClient := util.NewHttpClient(!client.config.verifySsl, 30*time.Second)
+	httpClient := util.NewHttpClient(client.config.verifySsl, 30*time.Second)
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		log.Println("Error creating request", request)
