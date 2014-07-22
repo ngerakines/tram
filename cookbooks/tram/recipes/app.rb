@@ -83,6 +83,13 @@ cookbook_file '/etc/init.d/tram' do
   group 'root'
 end
 
+cookbook_file '/usr/bin/update-tram.sh' do
+  source 'update-tram.sh'
+  mode 00770
+  owner 'root'
+  group 'root'
+end
+
 service 'tram' do
   provider Chef::Provider::Service::Init
   action [:start]
