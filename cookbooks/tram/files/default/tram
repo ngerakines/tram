@@ -29,7 +29,7 @@ start() {
     [ -x $tram ] || exit 5
     [ -f $TRAM_CONF_FILE ] || exit 6
     echo -n $"Starting $prog: "
-    daemon $tram --config $TRAM_CONF_FILE > /var/log/tram.log 2>&1 &
+    daemon $tram --config $TRAM_CONF_FILE >> /var/log/tram.log 2>&1 &
     PID=$!
     echo $PID > /home/tram/tram.pid
     retval=$?
